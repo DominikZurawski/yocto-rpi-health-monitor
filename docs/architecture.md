@@ -10,6 +10,11 @@ include the Sentinel package, its service unit, and the components
 required for boot and local console diagnostics. Confirm the SD image
 format and package manifest against the pinned BSP during integration.
 
+The MVP uses a local console for administration. An optional developer
+image profile enables SSH with public-key authentication and disables
+password authentication. Provision authorized public keys separately
+from the base image and keep private keys outside the repository.
+
 As of 2026-11-24, the published release table lists Blacksail 6.1.0
 (stable through April 2027), Wrynose 6.0.4 (LTS through April 2030),
 and Scarthgap 5.0.21 (LTS through April 2028). The release calendar

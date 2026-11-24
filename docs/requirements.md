@@ -28,3 +28,8 @@ watchdog recovery, host unit tests, and Raspberry Pi acceptance tests.
 Optional extensions include persistent event history, remote telemetry,
 A/B updates with rollback, additional metrics, and a 32-bit build
 profile.
+
+The MVP uses a local console, with no SSH server enabled. An optional
+developer image profile may enable SSH with public-key authentication.
+On that profile, verify that an authorized key works and password
+authentication is disabled.
