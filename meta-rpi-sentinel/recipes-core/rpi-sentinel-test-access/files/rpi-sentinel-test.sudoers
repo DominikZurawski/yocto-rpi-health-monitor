@@ -1,0 +1,5 @@
+# Konto testowe może obsłużyć jedną jednostkę i wykonać restart systemu.
+developer ALL=(root) NOPASSWD: NOSETENV: @SYSTEMCTL@ stop rpi-sentinel.service, \
+    @SYSTEMCTL@ start rpi-sentinel.service, \
+    @SYSTEMCTL@ restart rpi-sentinel.service, \
+    @SYSTEMCTL@ reboot
