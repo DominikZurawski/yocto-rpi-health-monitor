@@ -1,35 +1,33 @@
-# RPi Sentinel requirements
+# Wymagania RPi Sentinel
 
-## Functional requirements
+## Wymagania funkcjonalne
 
-| ID | Requirement | Acceptance criterion |
+| ID | Wymaganie | Kryterium akceptacji |
 | --- | --- | --- |
-| F-01 | Provide a minimal custom image for Raspberry Pi 3. | The image boots from microSD, exposes a local console, and starts Sentinel automatically. |
-| F-02 | Sample CPU temperature, RAM usage, and uptime. | Compare readings against the corresponding Linux interfaces, accounting for sampling delay and units. Missing data produces a degraded snapshot. |
-| F-03 | Support configurable temperature and RAM thresholds with hysteresis. | Verify activation at the upper threshold, clearance at the lower boundary, and rejection of invalid configurations. Uptime is included as an informational metric. |
-| F-04 | Log transitions and publish a local state snapshot. | The journal records alarm and availability transitions. Concurrent readers observe complete previous or new JSON snapshots after initial publication. |
-| F-05 | Recover the process and the system through separate watchdogs. | On-device tests demonstrate restart after a crash and a stalled loop, and the start-rate limit after repeated failures. A separate test demonstrates a hardware reset when keepalives cease and automatic service startup after reboot. |
+| F-01 | Własny minimalny obraz dla Raspberry Pi 3. | Obraz uruchamia się z microSD, udostępnia lokalną konsolę i automatycznie uruchamia usługę Sentinel. |
+| F-02 | Pomiar temperatury CPU, zużycia RAM i czasu od rozruchu. | Odczyty zgadzają się z interfejsami Linuksa z uwzględnieniem jednostek i odstępu między odczytami. Brak danych oznacza stan zdegradowany. |
+| F-03 | Konfigurowalne progi temperatury i RAM z histerezą. | Test potwierdza alarm na górnym progu, ustąpienie na dolnej granicy i odrzucenie błędnej konfiguracji. Uptime jest informacyjny. |
+| F-04 | Dziennik zdarzeń i lokalny plik stanu. | Dziennik zapisuje zmiany alarmów i dostępności pomiarów. Po pierwszej publikacji równoległy czytelnik widzi kompletny poprzedni lub nowy JSON. |
+| F-05 | Odtworzenie działania procesu i systemu za pomocą osobnych watchdogów. | Testy na urządzeniu obejmują restart po awarii i zawieszeniu oraz limit kolejnych restartów. Osobny test potwierdza reset sprzętowy po ustaniu odświeżania i automatyczny start usługi po rozruchu. |
 
-## Non-functional requirements
+## Wymagania niefunkcjonalne
 
-| ID | Requirement | Acceptance criterion |
+| ID | Wymaganie | Kryterium akceptacji |
 | --- | --- | --- |
-| NF-01 | Operate offline under a dedicated unprivileged account. | Sampling, alarm evaluation, local publication, and supervision operate with the network disconnected. The service runs with a non-root UID. |
-| NF-02 | Limit storage writes and keep the image console-based. | The periodic snapshot and the journal use volatile storage. The package manifest excludes the graphical stack and target development toolchain. |
-| NF-03 | Provide host and device verification. | CTest exercises parsers, validation, hysteresis, and failed reads. Device testing covers boot, live metrics, snapshot publication, and both recovery mechanisms. Record the tested image, board model, and outcomes. |
-| NF-04 | Rebuild from documented and pinned inputs. | A second build from a clean build directory with the same pinned sources and configuration produces a matching package manifest and a bootable image. Bit-for-bit SD image comparison is a separate check. |
+| NF-01 | Praca offline na dedykowanym koncie bez uprawnień roota. | Pomiary, alarmy, publikacja i nadzór działają przy odłączonej sieci. UID usługi jest różny od zera. |
+| NF-02 | Ograniczenie zapisów i obraz konsolowy. | Stan i dziennik używają pamięci ulotnej. Manifest obrazu nie zawiera środowiska graficznego ani narzędzi kompilacji dla urządzenia. |
+| NF-03 | Weryfikacja na hoście i urządzeniu. | CTest sprawdza parsery, walidację, histerezę i błędy odczytu. Test płytki obejmuje rozruch, odczyty, publikację stanu i oba mechanizmy recovery. Zapisujemy model płytki, testowany obraz i wyniki. |
+| NF-04 | Odtwarzalne budowanie z udokumentowanych wejść. | Druga kompilacja w czystym katalogu z przypiętych źródeł i tą samą konfiguracją daje zgodny manifest pakietów oraz obraz, który się uruchamia. Porównanie bitowe obrazu SD to osobny test. |
 
-## Scope
+## Zakres
 
-The MVP delivers one AArch64 image, a single C service built with CMake,
-local configuration and diagnostics, bounded service restart, hardware
-watchdog recovery, host unit tests, and Raspberry Pi acceptance tests.
+MVP obejmuje jeden obraz AArch64, jedną usługę w C budowaną przez CMake,
+lokalną konfigurację i diagnostykę, restart usługi z limitem, sprzętowy
+watchdog, testy jednostkowe na hoście i testy akceptacyjne na Raspberry Pi.
 
-Optional extensions include persistent event history, remote telemetry,
-A/B updates with rollback, additional metrics, and a 32-bit build
-profile.
+Opcjonalne rozszerzenia obejmują trwałą historię zdarzeń, zdalną telemetrię,
+aktualizacje A/B z wycofaniem, dodatkowe metryki i profil 32-bitowy.
 
-The MVP uses a local console, with no SSH server enabled. An optional
-developer image profile may enable SSH with public-key authentication.
-On that profile, verify that an authorized key works and password
-authentication is disabled.
+MVP korzysta z konsoli lokalnej. Opcjonalny profil deweloperski umożliwia
+SSH. Test na tym profilu potwierdza logowanie autoryzowanym kluczem
+publicznym oraz wyłączenie uwierzytelniania hasłem.

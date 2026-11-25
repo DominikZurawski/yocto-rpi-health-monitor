@@ -1,101 +1,93 @@
-# RPi Sentinel architecture
+# Architektura RPi Sentinel
 
-## Platform
+## Platforma
 
-The baseline is Yocto Project 6.0.4 (Wrynose LTS), with the Wrynose
-branch of meta-raspberrypi, `MACHINE = "raspberrypi3-64"`,
-`DISTRO = "rpi-sentinel"`, and `INIT_MANAGER = "systemd"`.
-The custom `rpi-sentinel-image` will build on `core-image-minimal` and
-include the Sentinel package, its service unit, and the components
-required for boot and local console diagnostics. Confirm the SD image
-format and package manifest against the pinned BSP during integration.
+Bazą jest Yocto Project 6.0.4 (Wrynose LTS) z gałęzią `wrynose` warstwy
+`meta-raspberrypi`, `MACHINE = "raspberrypi3-64"`,
+`DISTRO = "rpi-sentinel"` i `INIT_MANAGER = "systemd"`. Docelowy
+`rpi-sentinel-image` będzie oparty na `core-image-minimal` i zawrze pakiet
+Sentinel, jednostkę usługi i komponenty potrzebne do rozruchu oraz
+diagnostyki konsolowej. Format obrazu SD i manifest pakietów sprawdzimy
+dla przypiętego BSP. Etap 2 używa referencyjnego `DISTRO = "poky"`.
 
-The MVP uses a local console for administration. An optional developer
-image profile enables SSH with public-key authentication and disables
-password authentication. Provision authorized public keys separately
-from the base image and keep private keys outside the repository.
+MVP korzysta z konsoli lokalnej. Opcjonalny profil deweloperski dopuszcza
+SSH z kluczem publicznym i wyłącza uwierzytelnianie hasłem. Klucze publiczne
+dostarczamy osobno, a klucze prywatne przechowujemy poza repozytorium.
 
-As of 2026-11-24, the published release table lists Blacksail 6.1.0
-(stable through April 2027), Wrynose 6.0.4 (LTS through April 2030),
-and Scarthgap 5.0.21 (LTS through April 2028). The release calendar
-schedules Blacksail 6.1.1 for the week of November 23. The Layer Index
-lists dedicated Wrynose and Scarthgap BSP branches. It shows current
-BSP development on master, and a dedicated Blacksail branch and exact
-compatible revision remain unverified. Wrynose lists both Raspberry Pi 3
-machine variants and provides the longest LTS horizon of these series.
+Według tabeli wydań z 24 listopada 2026 r. Blacksail 6.1.0 ma wsparcie
+do kwietnia 2027 r., Wrynose 6.0.4 LTS do kwietnia 2030 r., a
+Scarthgap 5.0.21 LTS do kwietnia 2028 r. Kalendarz przewidywał
+Blacksail 6.1.1 na tydzień od 23 listopada. Indeks warstw wykazuje
+gałęzie BSP dla Wrynose i Scarthgap oraz bieżący rozwój na `master`.
+Osobna gałąź i zgodna rewizja dla Blacksail pozostały niepotwierdzone.
+Wrynose obejmuje oba warianty Raspberry Pi 3 i ma najdłuższy okres LTS.
 
-- [Yocto releases](https://www.yoctoproject.org/development/releases/)
-- [Release calendar](https://wiki.yoctoproject.org/wiki/Release_calendar)
-- [Wrynose BSP](https://layers.openembedded.org/layerindex/branch/wrynose/layer/meta-raspberrypi/)
-- [Scarthgap BSP](https://layers.openembedded.org/layerindex/branch/scarthgap/layer/meta-raspberrypi/)
-- [BSP development branch](https://layers.openembedded.org/layerindex/branch/master/layer/meta-raspberrypi/)
+- [Wydania Yocto](https://www.yoctoproject.org/development/releases/)
+- [Kalendarz wydań](https://wiki.yoctoproject.org/wiki/Release_calendar)
+- [BSP Wrynose](https://layers.openembedded.org/layerindex/branch/wrynose/layer/meta-raspberrypi/)
+- [BSP Scarthgap](https://layers.openembedded.org/layerindex/branch/scarthgap/layer/meta-raspberrypi/)
+- [Gałąź rozwojowa BSP](https://layers.openembedded.org/layerindex/branch/master/layer/meta-raspberrypi/)
 
-AArch64 uses the 64-bit capabilities of the Cortex-A53 and shares an
-application binary interface (ABI) with other AArch64 Linux systems.
-The ABI defines how compiled programs and libraries interoperate,
-including calling conventions and type layout. The 32-bit variant can
-reduce memory overhead in pointer-heavy structures and accommodate
-legacy ARM binaries. The Raspberry Pi 3 Model B has 1 GB of RAM.
-Compare actual memory use and image size on the device if a 32-bit
-profile becomes relevant.
+AArch64 wykorzystuje 64-bitowy tryb Cortex-A53 i wspólny interfejs binarny
+aplikacji (ABI) dla systemów Linux AArch64. ABI określa współpracę
+skompilowanych programów i bibliotek, w tym sposób wywoływania funkcji
+oraz układ typów. Wariant 32-bitowy może zmniejszyć zużycie pamięci
+przez struktury ze wskaźnikami i obsługiwać starsze binaria ARM.
+Raspberry Pi 3 Model B ma 1 GB RAM. Jeśli powstanie profil 32-bitowy,
+porównamy na płytce zużycie pamięci i rozmiar obrazu.
 
-## Components
+## Komponenty
 
 ```mermaid
 flowchart TD
-    B["Pinned BitBake, OE-Core and Raspberry Pi BSP"] --> I["RPi Sentinel image"]
+    B["Przypięte BitBake, OE-Core i BSP Raspberry Pi"] --> I["Obraz RPi Sentinel"]
     L["meta-rpi-sentinel"] --> I
-    I --> S["systemd PID 1"]
-    S -->|"Boot and bounded restart"| A["Sentinel C service"]
-    K["Linux thermal sysfs, meminfo and boot clock"] --> A
-    C["Local configuration"] --> A
-    A -->|"Events and errors"| J["systemd journal"]
-    A -->|"Atomic snapshot"| F["Local status JSON"]
-    A -->|"READY=1 and WATCHDOG=1"| S
-    S -->|"Keepalive via /dev/watchdog0"| W["Hardware watchdog"]
-    W -->|"Reset on timeout"| R["Board reboot"]
+    I --> S["systemd jako PID 1"]
+    S -->|"Start i restart z limitem"| A["Usługa Sentinel w C"]
+    K["Temperatura z sysfs, meminfo i zegar rozruchu"] --> A
+    C["Konfiguracja lokalna"] --> A
+    A -->|"Zdarzenia i błędy"| J["Dziennik systemd"]
+    A -->|"Atomowa publikacja"| F["Lokalny stan JSON"]
+    A -->|"READY=1 i WATCHDOG=1"| S
+    S -->|"Odświeżanie przez /dev/watchdog0"| W["Watchdog sprzętowy"]
+    W -->|"Reset po upływie limitu"| R["Ponowny rozruch płytki"]
     R --> S
 ```
 
-## Application lifecycle
+## Cykl życia aplikacji
 
-1. systemd starts the service as a dedicated account. The process
-   validates `/etc/rpi-sentinel.conf` and publishes its first snapshot
-   before sending `READY=1`. Invalid configuration prevents startup
-   and produces a diagnostic. Changes take effect after a service restart.
-2. The main loop samples every 5 seconds by default, with a configurable
-   interval capped at 10 seconds. It reads the CPU thermal zone by type
-   from `/sys/class/thermal`, calculates RAM usage as
-   `(MemTotal - MemAvailable) / MemTotal` from `/proc/meminfo`, and
-   reads uptime via `CLOCK_BOOTTIME`. Confirm the CPU zone type on the
-   target. Missing or invalid readings mark the affected metric
-   unavailable and the snapshot degraded.
-3. Upper temperature and RAM alarms use configurable hysteresis. Uptime
-   is informational. Log alarm activation, clearance, and measurement
-   loss and recovery to journald. Publish schema version, boot-relative
-   sample time, values, units, and status in
-   `/run/rpi-sentinel/status.json`. Write a temporary file in the same
-   directory and replace the snapshot using `rename()`. The snapshot
-   and the journal are volatile in the MVP.
-4. With `Type=notify`, `WatchdogSec=30s`, and `Restart=on-failure`,
-   systemd recovers the service after a crash or a stalled sampling loop.
-   The main loop sends `WATCHDOG=1` after processing a cycle, including
-   a cycle that successfully reports missing measurements. Alarm
-   transitions leave the service running. A start-rate limit leaves a
-   repeatedly failing service in the failed state for operator diagnosis.
-5. PID 1 owns the board watchdog via `RuntimeWatchdogSec=` and
-   `/dev/watchdog0`. Confirm device availability and the effective
-   timeout on hardware. If hardware keepalives stop after the watchdog
-   is armed, expiry resets the board. A normal service stop handles
-   `SIGTERM` and exits cleanly.
+1. systemd uruchamia usługę na dedykowanym koncie. Aplikacja sprawdza
+   `/etc/rpi-sentinel.conf` i publikuje pierwszy stan przed wysłaniem
+   `READY=1`. Błędna konfiguracja przerywa start i daje komunikat
+   diagnostyczny. Zmiany obowiązują po restarcie usługi.
+2. Pętla wykonuje pomiar domyślnie co 5 s, a maksymalny interwał to 10 s.
+   Szuka strefy CPU po typie w `/sys/class/thermal`, oblicza
+   `(MemTotal - MemAvailable) / MemTotal` z `/proc/meminfo` i odczytuje
+   uptime przez `CLOCK_BOOTTIME`. Typ strefy potwierdzimy na urządzeniu.
+   Błędny lub niedostępny odczyt oznacza metrykę jako niedostępną i
+   raportuje stan zdegradowany.
+3. Górne progi temperatury i RAM mają konfigurowalną histerezę. Uptime
+   jest informacyjny. Włączenie i ustąpienie alarmu oraz utratę i powrót
+   pomiaru zapisujemy w journald. W `/run/rpi-sentinel/status.json`
+   publikujemy wersję schematu, czas od rozruchu, pomiary, jednostki
+   i status. Plik tymczasowy z tego samego katalogu zastępuje poprzedni
+   przez `rename()`. Stan i dziennik są ulotne w MVP.
+4. Przy `Type=notify`, `WatchdogSec=30s` i `Restart=on-failure` systemd
+   odzyskuje usługę po awarii lub zawieszeniu pętli. Po obsłużeniu cyklu
+   pętla wysyła `WATCHDOG=1`, również gdy poprawnie zgłosiła brak pomiaru.
+   Alarm pozostawia usługę uruchomioną. Po przekroczeniu limitu restartów
+   usługa pozostaje w stanie `failed` do diagnostyki.
+5. PID 1 nadzoruje płytkę przez `RuntimeWatchdogSec=` i `/dev/watchdog0`.
+   Dostępność urządzenia i efektywny timeout potwierdzimy na płytce.
+   Uzbrojony watchdog resetuje płytkę po ustaniu odświeżania. Przy
+   zwykłym zatrzymaniu usługa obsługuje `SIGTERM` i kończy pracę.
 
-- [systemd service watchdog](https://www.freedesktop.org/software/systemd/man/258/systemd.service.html)
-- [systemd hardware watchdog](https://www.freedesktop.org/software/systemd/man/258/systemd.conf.d.html)
+- [Watchdog usługi systemd](https://www.freedesktop.org/software/systemd/man/258/systemd.service.html)
+- [Watchdog sprzętowy systemd](https://www.freedesktop.org/software/systemd/man/258/systemd.conf.d.html)
 
-## Repository layout
+## Struktura repozytorium
 
-The tree describes the intended layout as implementation and test
-material become available.
+Planowana struktura rośnie wraz z implementacją i testami.
 
 ```text
 README.md
@@ -103,7 +95,7 @@ LICENSE
 .gitignore
 app/
   CMakeLists.txt
-  include/                 # when headers are shared
+  include/                 # gdy nagłówki są współdzielone
   src/
   tests/
 meta-rpi-sentinel/
@@ -124,29 +116,27 @@ docs/
 .github/workflows/
 ```
 
-The application recipe owns the service unit. Image-level systemd
-configuration owns the hardware watchdog policy. Keeping project
-metadata in its own layer makes downstream changes reviewable and
-allows upstream revisions to be updated as a tested set.
+Receptura aplikacji instaluje jednostkę usługi. Konfiguracja systemd na
+poziomie obrazu określa politykę sprzętowego watchdoga. Własna warstwa
+pozwala przeglądać zmiany projektu i aktualizować źródła jako sprawdzony
+zestaw.
 
-## Source pinning
+## Przypinanie źródeł
 
-Use `build-config/sources.lock` as the future source of truth for upstream
-URLs, full Git commit IDs, and enabled layer paths. Yocto 6.0.4 publishes
-the following revisions:
+`build-config/sources.lock` przechowuje adresy, pełne identyfikatory
+commitów i aktywne ścieżki warstw.
 
-| Repository | Git revision | Enabled layer path |
+| Repozytorium | Rewizja Git | Aktywna ścieżka |
 | --- | --- | --- |
-| [BitBake](https://git.openembedded.org/bitbake) | `51fd94a67fa17650a9ff623492005972bbc7d26f` | Build tool |
+| [BitBake](https://git.openembedded.org/bitbake) | `51fd94a67fa17650a9ff623492005972bbc7d26f` | Narzędzie budowania |
 | [OpenEmbedded-Core](https://git.openembedded.org/openembedded-core) | `0f03c732a0a2d0506b41b1abe60b3f368b2300dc` | `meta` |
-| [meta-raspberrypi](https://git.yoctoproject.org/meta-raspberrypi) | Select and validate a specific commit from `wrynose` during integration | Repository root |
+| [meta-raspberrypi](https://git.yoctoproject.org/meta-raspberrypi) | `919588393f41b48cb6c5d832aa35e58a19b6762d` z `wrynose`, użyty przy bazowym rozruchu | Główny katalog repozytorium |
 
-The project commit identifies the application, image configuration, and
-`meta-rpi-sentinel` together. Pin any further layer required by the
-validated configuration in the same manifest. Pin recipe Git revisions
-and archive checksums. Record the supported build host, the effective
-configuration, and artifact checksums. Keep build outputs, downloads,
-and shared-state caches outside version control on a native Linux
-filesystem with sufficient space.
+Commit projektu identyfikuje aplikację, konfigurację obrazu oraz
+`meta-rpi-sentinel`. Kolejne użyte warstwy przypinamy w tym samym
+manifeście. Przypinamy też rewizje Git i sumy kontrolne archiwów
+pobieranych przez receptury. Dokumentujemy hosta, efektywną konfigurację
+i sumy artefaktów. Katalog roboczy, pobrane źródła i cache są na ext4.
+Eksportowane obrazy są w lokalnym `artifacts/`, pomijanym przez Git.
 
-[Yocto 6.0.4 release source revisions](https://docs.yoctoproject.org/wrynose/migration-guides/release-notes-6.0.4.html)
+[Rewizje źródeł wydania Yocto 6.0.4](https://docs.yoctoproject.org/wrynose/migration-guides/release-notes-6.0.4.html)

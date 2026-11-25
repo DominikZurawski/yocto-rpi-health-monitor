@@ -1,38 +1,88 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-project_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
-image="$project_dir/artifacts/core-image-minimal-raspberrypi3-64.rootfs-20261124103219.wic.bz2"
-card=/dev/sda
-expected_sha=dd7848b0e5441b5257cab5b0eeb3f927afce82773d3a6b65f3a64b4673df7062
+if [[ $# -lt 3 || $# -gt 4 || ! "$3" =~ ^[[:xdigit:]]{64}$ ]]; then
+    printf 'Użycie: %s URZĄDZENIE_KARTY OBRAZ SHA256 [KLUCZ.pub]\n' "$0" >&2
+    exit 2
+fi
 
-# Verify the exact image and check that the compressed stream is readable.
+card="$(realpath -- "$1")"
+image="$2"
+expected_sha="$3"
+public_key="${4:-}"
+project_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+if [[ $# -eq 4 ]]; then
+    profile="$project_dir/.local/wifi-default"
+    if [[ ! -f "$profile" || "$(stat -Lc %a -- "$profile")" != 600 ]]; then
+        printf 'Automatyczna konfiguracja wymaga pliku %s z trybem 0600.\n' "$profile" >&2
+        exit 1
+    fi
+    if [[ "$public_key" != *.pub || ! -f "$public_key" ]] ||
+       ! ssh-keygen -lf "$public_key" >/dev/null; then
+        printf 'Podaj prawidłowy klucz publiczny SSH w pliku .pub.\n' >&2
+        exit 1
+    fi
+fi
+
+check_card() {
+    local description mountpoints
+    if [[ ! -b "$card" ]] ||
+       ! description="$(lsblk -dn -o TYPE,TRAN,MODEL "$card")" ||
+       [[ "$(xargs <<< "$description")" != "disk usb Storage Device" ]]; then
+        printf 'Urządzenie %s nie odpowiada używanemu czytnikowi kart USB.\n' "$card" >&2
+        return 1
+    fi
+    mountpoints="$(lsblk -nr -o MOUNTPOINTS "$card")" || return 1
+    if grep -Eq '^(/|/boot(/.*)?|/home|/usr|/var|\[SWAP\])$' <<< "$mountpoints"; then
+        printf 'Urządzenie %s zawiera aktywną partycję systemową lub swap.\n' "$card" >&2
+        return 1
+    fi
+}
+
+check_card
 printf '%s  %s\n' "$expected_sha" "$image" | sha256sum --check
 bzip2 --test "$image"
-
-# Check the reader's identity and show the disk and its partitions.
-if [[ "$(lsblk -dn -o TYPE,TRAN,MODEL "$card" | xargs)" != "disk usb Storage Device" ]]; then
-    printf 'Unexpected device at %s. Stopping.\n' "$card" >&2
-    exit 1
-fi
 lsblk -o PATH,SIZE,MODEL,TRAN,TYPE,MOUNTPOINTS "$card"
 
-printf 'Wpisz dokładnie NADPISZ /dev/sda, aby zapisać obraz: '
+printf 'Wpisz dokładnie NADPISZ %s, aby nadpisać całą kartę: ' "$card"
 IFS= read -r confirmation </dev/tty
-[[ "$confirmation" == "NADPISZ /dev/sda" ]] || exit 1
+[[ "$confirmation" == "NADPISZ $card" ]] || exit 1
 
-# Unmount the old boot partition if Ubuntu mounted it automatically.
-if findmnt -rn -S "${card}1" >/dev/null; then
-    sudo umount "${card}1"
-fi
+sudo -v
+check_card
 
-# Stop if any filesystem on the card is still mounted.
-if lsblk -nr -o MOUNTPOINTS "$card" | grep '[^[:space:]]' >/dev/null; then
-    printf 'A filesystem on %s is still mounted. Stopping.\n' "$card" >&2
+# Odmontuj wyłącznie partycje urządzenia potwierdzonego przez użytkownika.
+partitions="$(lsblk -nrpo PATH,TYPE "$card")"
+while read -r partition device_type; do
+    if [[ "$device_type" == part ]] && findmnt -rn -S "$partition" >/dev/null; then
+        printf 'Odmontowuję %s.\n' "$partition"
+        udisksctl unmount -b "$partition"
+    fi
+done <<< "$partitions"
+
+# Ubuntu może ponownie zamontować partycję. Zapis wymaga pustej listy montowań.
+check_card
+mountpoints="$(lsblk -nr -o MOUNTPOINTS "$card")"
+if [[ "$mountpoints" =~ [^[:space:]] ]]; then
+    printf 'Urządzenie %s jest nadal używane. Przerywam przed zapisem.\n' "$card" >&2
     exit 1
 fi
 
-sudo -v
 bzip2 -dc -- "$image" | sudo dd of="$card" bs=4M status=progress conv=fsync
-sync
-printf '\nZapis zakończony. Możesz wyjąć kartę.\n'
+printf '\nZapis obrazu zakończony.\n'
+
+if [[ -n "$public_key" ]]; then
+    udevadm settle
+    root_partition="$(lsblk -nrpo PATH,TYPE,FSTYPE,LABEL "$card" |
+        awk '$2 == "part" && $3 == "ext4" && $4 == "root" { print $1 }')"
+    if [[ -z "$root_partition" || "$root_partition" == *$'\n'* ]]; then
+        printf 'Nie znaleziono jednej partycji ext4 z etykietą root na %s.\n' "$card" >&2
+        exit 1
+    fi
+    if findmnt -rn -S "$root_partition" >/dev/null; then
+        udisksctl unmount -b "$root_partition"
+    fi
+    bash "$project_dir/scripts/provision-wifi-card.sh" --saved "$root_partition" "$public_key"
+else
+    printf 'Karta jest gotowa do oddzielnej konfiguracji Wi-Fi.\n'
+fi
