@@ -1,8 +1,15 @@
 [Unit]
 Description=Monitor stanu Raspberry Pi
+StartLimitIntervalSec=120s
+StartLimitBurst=4
 
 [Service]
-Type=exec
+Type=notify
+NotifyAccess=main
+WatchdogSec=30s
+TimeoutStartSec=30s
+Restart=on-failure
+RestartSec=2s
 DynamicUser=yes
 RuntimeDirectory=rpi-sentinel
 ExecStart=/usr/bin/rpi-sentinel

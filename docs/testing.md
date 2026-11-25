@@ -50,7 +50,7 @@ CONFIG
 )
 ```
 
-Pakiet `rpi-sentinel-test-access` dodaje regułę w `/etc/sudoers.d/rpi-sentinel-test`. Tylko ten build dołącza pakiet do obrazu. Receptura wybiera ścieżkę do `systemctl` przez `base_bindir`, a `RDEPENDS` zapewnia obecność `sudo` na urządzeniu. Konto `developer` potrzebuje klucza do SSH i może przez `sudo -n` wykonać cztery dokładnie określone polecenia.
+Pakiet `rpi-sentinel-test-access` dodaje regułę w `/etc/sudoers.d/rpi-sentinel-test`. Tylko ten build dołącza pakiet do obrazu. Receptura wybiera ścieżkę do `systemctl` przez `base_bindir`, a `RDEPENDS` zapewnia obecność `sudo` na urządzeniu. Konto `developer` potrzebuje klucza do SSH i może przez `sudo -n` wykonywać polecenia z listy testowej. Testy awarii monitora opisuje [procedura recovery](recovery.md).
 
 Po buildzie znajdź kartę poleceniem `lsblk`. Podaj ścieżkę całej karty, ścieżkę obrazu i sumę wyświetloną powyżej. Skrypt poprosi o potwierdzenie urządzenia. Po zapisie użyje lokalnego profilu Wi-Fi i wgra klucz publiczny na kartę.
 

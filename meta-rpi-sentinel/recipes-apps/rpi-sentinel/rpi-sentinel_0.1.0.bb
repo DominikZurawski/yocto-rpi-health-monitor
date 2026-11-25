@@ -11,8 +11,9 @@ SRC_URI = " \
 "
 S = "${UNPACKDIR}/app"
 
-inherit cmake systemd features_check
+inherit cmake pkgconfig systemd features_check
 REQUIRED_DISTRO_FEATURES = "systemd"
+DEPENDS += "systemd"
 
 EXTRA_OECMAKE += "-DBUILD_TESTING=OFF -DSENTINEL_CONFIG_INSTALL_DIR=${sysconfdir}"
 

@@ -8,11 +8,13 @@
 #include <limits.h>
 #include <signal.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/select.h>
 #include <sys/stat.h>
+#include <systemd/sd-daemon.h>
 #include <time.h>
 
 #ifndef SENTINEL_CONFIG_PATH
@@ -168,6 +170,17 @@ int main(int argc, char **argv)
         return EXIT_FAILURE;
     }
 
+    uint64_t watchdog_usec;
+    int watchdog = sd_watchdog_enabled(1, &watchdog_usec);
+    if (watchdog < 0) {
+        fprintf(stderr, "Konfiguracja watchdoga systemd: %s\n", strerror(-watchdog));
+        return EXIT_FAILURE;
+    }
+    if (watchdog > 0 && (uint64_t)config.interval_sec * 1000000 > watchdog_usec / 2) {
+        fprintf(stderr, "Interwał pomiarów przekracza połowę limitu watchdoga systemd.\n");
+        return EXIT_FAILURE;
+    }
+
     sigset_t wait_mask;
     int error = setup_shutdown(&wait_mask);
     if (error != 0) {
@@ -212,6 +225,21 @@ int main(int argc, char **argv)
             fprintf(stderr, "Zapis stanu do %s: %s\n", status_path, strerror(status_error));
         } else if (status_error == 0 && previous_status_error != 0) {
             fprintf(stderr, "Zapis stanu znów dostępny.\n");
+        }
+
+        /* Powiadomienie potwierdza zakończenie cyklu. Obsłużony błąd
+         * odczytu albo zapisu zostaje zgłoszony w stanie lub dzienniku.
+         */
+        if (first_sample || watchdog > 0) {
+            const char *notification = first_sample
+                ? (watchdog > 0 ? "READY=1\nWATCHDOG=1" : "READY=1")
+                : "WATCHDOG=1";
+            int notified = sd_notify(0, notification);
+            if (notified < 0 || (watchdog > 0 && notified == 0)) {
+                fprintf(stderr, "Powiadomienie systemd: %s\n",
+                        notified < 0 ? strerror(-notified) : "brak gniazda powiadomień");
+                return EXIT_FAILURE;
+            }
         }
 
         first_sample = false;

@@ -375,7 +375,7 @@ również `ctest`. Jeśli brakuje narzędzi, zainstaluj je przed
 uruchomieniem poniższych poleceń:
 
 ```bash
-sudo apt install build-essential cmake
+sudo apt install build-essential cmake libsystemd-dev pkg-config python3
 ```
 
 Z katalogu głównego repozytorium:
