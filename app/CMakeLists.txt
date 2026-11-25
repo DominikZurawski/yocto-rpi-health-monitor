@@ -14,7 +14,9 @@ add_executable(rpi-sentinel src/main.c)
 target_link_libraries(rpi-sentinel PRIVATE sentinel_core)
 
 install(TARGETS rpi-sentinel RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
-install(FILES rpi-sentinel.conf DESTINATION ${CMAKE_INSTALL_DATADIR}/rpi-sentinel)
+set(SENTINEL_CONFIG_INSTALL_DIR "${CMAKE_INSTALL_DATADIR}/rpi-sentinel" CACHE STRING
+    "Katalog instalacji pliku konfiguracyjnego")
+install(FILES rpi-sentinel.conf DESTINATION "${SENTINEL_CONFIG_INSTALL_DIR}")
 
 if(BUILD_TESTING)
     add_executable(sentinel-unit-tests tests/unit.c)

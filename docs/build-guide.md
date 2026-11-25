@@ -446,3 +446,49 @@ i `--thermal-root` wskazują przygotowane źródła w teście procesowym.
   `sigaction()` ustawia procedurę `SIGTERM`, która tylko zapisuje
   flagę. `pselect()` odblokowuje sygnał atomowo przy oczekiwaniu,
   a proces kończy cykl bez zapisywania stanu z procedury sygnału.
+
+## Etap 5 — integracja z Yocto
+
+Warstwa `meta-rpi-sentinel` korzysta z OE-Core i deklaruje zgodność
+z Wrynose. `BBPATH` umożliwia wyszukiwanie metadanych po ścieżce,
+a `BBFILES` wskazuje pliki receptur w warstwie. Identyfikator kolekcji
+łączy wzorzec plików, zależność od `core` i deklarację zgodności.
+
+Receptura `rpi-sentinel_0.1.0.bb` pobiera katalog `app/` i tekst
+licencji z tego samego checkoutu co warstwa. `S` wskazuje
+`app/` w `UNPACKDIR`. Klasa `cmake` konfiguruje kompilację
+skrośną. Przy instalacji `SENTINEL_CONFIG_INSTALL_DIR` ustawia
+miejsce konfiguracji w systemie docelowym, a `do_install:append`
+dopisuje instalację jednostki do drzewa `D`. `CONFFILES` oznacza
+konfigurację użytkownika na potrzeby aktualizacji pakietu.
+
+`SYSTEMD_SERVICE:${PN}` wiąże jednostkę z pakietem, a
+`SYSTEMD_AUTO_ENABLE:${PN}` włącza jej automatyczny start.
+`DynamicUser=yes` zapewnia konto przydzielane przez systemd,
+a `RuntimeDirectory` tworzy katalog stanu pod `/run`.
+`features_check` wymaga systemd w `DISTRO_FEATURES`. Receptura
+obrazu rozszerza `core-image-minimal` o pakiet w `IMAGE_INSTALL`.
+
+Po zatwierdzeniu przewidywań najpierw sprawdzamy parsowanie i
+efektywną konfigurację BitBake, następnie pakiet aplikacji i QA,
+a na końcu obraz. Sprawdzono CTest, instalację do tymczasowego drzewa
+i składnię jednostki. W pierwszym buildzie BitBake utworzył pakiet RPM
+z binarką AArch64, konfiguracją, jednostką systemd i regułą preset.
+Log `do_package_qa` potwierdził wykonanie kontroli, a manifest
+`rpi-sentinel-image` zawiera wersję 0.1.0 pakietu.
+
+### Wspólny sstate i baza równoważności
+
+`build-stage5` współdzieli cache sstate z `build-stage2`.
+Przy lokalnym serwerze równoważności hashy oba buildy powinny korzystać
+z tej samej bazy, żeby BitBake mógł rozpoznawać równoważne wyniki zadań.
+Na tym hoście należy wskazać istniejący katalog bazy buildu bazowego
+w `build-stage5/conf/local.conf`:
+
+```bitbake
+BB_HASHSERVE_DB_DIR = "/home/dominik/yocto/rpi-sentinel-wrynose/build-stage2/cache"
+```
+
+Wartością zmiennej jest katalog. BitBake sam dopisuje nazwę
+`hashserv.db`. Do sprawdzenia konfiguracji wystarczy `bitbake -p`.
+Zmiana dotyczy ponownego użycia wyników przyszłych buildów.

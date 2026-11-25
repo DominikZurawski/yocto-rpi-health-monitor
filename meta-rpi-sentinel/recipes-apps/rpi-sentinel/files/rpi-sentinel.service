@@ -1,0 +1,11 @@
+[Unit]
+Description=Monitor stanu Raspberry Pi
+
+[Service]
+Type=exec
+DynamicUser=yes
+RuntimeDirectory=rpi-sentinel
+ExecStart=/usr/bin/rpi-sentinel
+
+[Install]
+WantedBy=multi-user.target
