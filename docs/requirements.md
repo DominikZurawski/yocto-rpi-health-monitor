@@ -6,8 +6,8 @@
 | --- | --- | --- |
 | F-01 | Własny minimalny obraz dla Raspberry Pi 3. | Obraz uruchamia się z microSD, udostępnia lokalną konsolę i automatycznie uruchamia usługę Sentinel. |
 | F-02 | Pomiar temperatury CPU, zużycia RAM i czasu od rozruchu. | Odczyty zgadzają się z interfejsami Linuksa z uwzględnieniem jednostek i odstępu między odczytami. Brak danych oznacza stan zdegradowany. |
-| F-03 | Konfigurowalne progi temperatury i RAM z histerezą. | Test potwierdza alarm na górnym progu, ustąpienie na dolnej granicy i odrzucenie błędnej konfiguracji. Uptime jest informacyjny. |
-| F-04 | Dziennik zdarzeń i lokalny plik stanu. | Dziennik zapisuje zmiany alarmów i dostępności pomiarów. Po pierwszej publikacji równoległy czytelnik widzi kompletny poprzedni lub nowy JSON. |
+| F-03 | Konfigurowalny interwał oraz progi temperatury i RAM z histerezą. | Test potwierdza stany `NORMAL`, `WARNING` i `ERROR`, przejścia na granicach progów oraz odrzucenie błędnej konfiguracji. Uptime jest informacyjny. |
+| F-04 | Dziennik zdarzeń i plik `/run/rpi-sentinel/status`. | Dziennik zapisuje pomiary, zmiany stanów i dostępności odczytów. Po pierwszej publikacji równoległy czytelnik widzi kompletny poprzedni lub nowy JSON. |
 | F-05 | Odtworzenie działania procesu i systemu za pomocą osobnych watchdogów. | Testy na urządzeniu obejmują restart po awarii i zawieszeniu oraz limit kolejnych restartów. Osobny test potwierdza reset sprzętowy po ustaniu odświeżania i automatyczny start usługi po rozruchu. |
 
 ## Wymagania niefunkcjonalne

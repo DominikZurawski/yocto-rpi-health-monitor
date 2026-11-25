@@ -366,3 +366,83 @@ bash scripts/diagnose-wifi-card.sh read /dev/sdb2
 Wynik obejmuje krótką listę wybranych zdarzeń Wi-Fi, EAPOL, DHCP, SSH i kernela
 z ostatniego zapisanego rozruchu. Wgranie nowego obrazu usuwa tę
 konfigurację dziennika.
+
+## Etap 3 — aplikacja monitorująca na hoście
+
+Projekt w `app/` wymaga kompilatora C, CMake 3.16 lub nowszego oraz
+narzędzia budowania, np. Make. Na Ubuntu pakiet `cmake` dostarcza
+również `ctest`. Jeśli brakuje narzędzi, zainstaluj je przed
+uruchomieniem poniższych poleceń:
+
+```bash
+sudo apt install build-essential cmake
+```
+
+Z katalogu głównego repozytorium:
+
+```bash
+build_dir=$(mktemp -d)
+cmake -S app -B "$build_dir" -DCMAKE_BUILD_TYPE=Release
+cmake --build "$build_dir" --parallel
+(cd "$build_dir" && ctest --output-on-failure)
+cmake --install "$build_dir" --prefix "$build_dir/install"
+```
+
+Żeby zobaczyć czytelny przebieg scenariusza testowego z katalogu
+repozytorium, uruchom `sh app/tests/process.sh "$build_dir/rpi-sentinel"`.
+Skrypt wypisuje sprawdzone zmiany stanu i wynik obsługi SIGTERM.
+
+### Etap 4 — zakres CTest
+
+| Test | Scenariusze |
+| --- | --- |
+| `sentinel-unit` | Granice parserów, brak plików, domyślne wartości pominiętych kluczy, progi, histereza, cały JSON oraz atomowy zapis. Limit `RLIMIT_FSIZE` wymusza błąd w trakcie zapisu i pozwala sprawdzić, czy poprzedni plik pozostał dostępny. |
+| `sentinel-process` | Pełny cykl z testowymi plikami: `NORMAL → WARNING → ERROR → WARNING → NORMAL`, częściowa utrata pomiaru i poprawne wyjście. |
+| `sentinel-shutdown` | Po opublikowaniu pierwszego stanu test wysyła `SIGTERM`. CTest ogranicza wykonanie do 6 s przy interwale pomiaru 10 s. |
+
+Testy tworzą izolowane pliki wejściowe w katalogach tymczasowych.
+Można je uruchomić na Linuksie bez Raspberry Pi i bez odczytu temperatury
+hosta.
+
+Instalacja umieszcza program w `bin/`, a przykład konfiguracji w
+`share/rpi-sentinel/` pod wskazanym prefiksem. W zwykłym uruchomieniu
+program czyta `/etc/rpi-sentinel.conf` i zapisuje JSON w
+`/run/rpi-sentinel/status`. Do próby na hoście wskaż ścieżki zapisu
+i konfiguracji w katalogu tymczasowym:
+
+```bash
+"$build_dir/rpi-sentinel" --config app/rpi-sentinel.conf \
+    --status-file "$build_dir/status"
+```
+
+Program czyta rzeczywiste `/proc/uptime` i `/proc/meminfo`. Domyślną
+strefą temperatury jest `cpu-thermal`. Na innym sprzęcie można podać
+właściwy typ przez `--thermal-type`. Brak dopasowania oznacza
+niedostępność temperatury i stan `ERROR`. Parametry `--proc-root`
+i `--thermal-root` wskazują przygotowane źródła w teście procesowym.
+
+- Plik konfiguracyjny obowiązuje od startu procesu. Zawiera pary
+  `klucz=wartość` i komentarze od `#`. Nieobecne klucze zachowują
+  wartości domyślne z przykładu. Interwał to 1–10 s. Progi CPU są w °C,
+  progi RAM w całych procentach. Stan wchodzi na próg przy `>=`, a
+  ustępuje po spadku poniżej progu pomniejszonego o histerezę.
+- Wynik JSON używa milistopni Celsjusza, milisekund i KiB. Procent
+  użytej pamięci jest obliczany z `MemTotal - MemAvailable` i
+  zaokrąglany w dół. Niedostępna metryka ma pole `io_error` z kodem
+  błędu. Poprawne metryki nadal są publikowane.
+- Nieprawidłowa konfiguracja kończy proces przed pierwszą próbką.
+  Błąd wejścia jest zgłaszany przy zmianie i powoduje ponowienie
+  odczytu w kolejnym cyklu. Błąd publikacji pozostawia poprzedni plik
+  i pozwala ponowić próbę. Pomiary trafiają na standardowe wyjście,
+  a zmiany stanu i błędy na standardowe wyjście błędów.
+- Publikacja tworzy plik przez `mkstemp()` obok pliku docelowego.
+  Po zapisaniu i zamknięciu `rename()` atomowo podmienia nazwę.
+  Otwarty wcześniej deskryptor nadal wskazuje poprzednią wersję.
+  Stan ma znajdować się w ulotnym `/run`, więc zapis nie zapewnia
+  trwałości po zaniku zasilania.
+- Program używa ograniczonych buforów i struktur o stałej wielkości.
+  Aplikacja nie alokuje pamięci bezpośrednio na stercie. Uchwyty plików
+  i katalogów używane przez bibliotekę standardową są zamykane.
+  `sigaction()` ustawia procedurę `SIGTERM`, która tylko zapisuje
+  flagę. `pselect()` odblokowuje sygnał atomowo przy oczekiwaniu,
+  a proces kończy cykl bez zapisywania stanu z procedury sygnału.

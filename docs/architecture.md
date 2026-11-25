@@ -56,6 +56,10 @@ flowchart TD
 
 ## Cykl życia aplikacji
 
+Etap 3 realizuje odczyty, ocenę stanu, zapis i obsługę sygnału
+w procesie uruchamianym na hoście. Powiadomienia i nadzór systemd
+opisane poniżej należą do docelowej integracji.
+
 1. systemd uruchamia usługę na dedykowanym koncie. Aplikacja sprawdza
    `/etc/rpi-sentinel.conf` i publikuje pierwszy stan przed wysłaniem
    `READY=1`. Błędna konfiguracja przerywa start i daje komunikat
@@ -63,12 +67,13 @@ flowchart TD
 2. Pętla wykonuje pomiar domyślnie co 5 s, a maksymalny interwał to 10 s.
    Szuka strefy CPU po typie w `/sys/class/thermal`, oblicza
    `(MemTotal - MemAvailable) / MemTotal` z `/proc/meminfo` i odczytuje
-   uptime przez `CLOCK_BOOTTIME`. Typ strefy potwierdzimy na urządzeniu.
-   Błędny lub niedostępny odczyt oznacza metrykę jako niedostępną i
-   raportuje stan zdegradowany.
+   uptime z pierwszego pola `/proc/uptime`. Typ strefy potwierdzimy
+   na urządzeniu. Błędny lub niedostępny odczyt oznacza metrykę jako
+   niedostępną i daje stan `ERROR`. Zegar `CLOCK_MONOTONIC` ustala
+   terminy kolejnych cykli.
 3. Górne progi temperatury i RAM mają konfigurowalną histerezę. Uptime
    jest informacyjny. Włączenie i ustąpienie alarmu oraz utratę i powrót
-   pomiaru zapisujemy w journald. W `/run/rpi-sentinel/status.json`
+   pomiaru zapisujemy w dzienniku procesu. W `/run/rpi-sentinel/status`
    publikujemy wersję schematu, czas od rozruchu, pomiary, jednostki
    i status. Plik tymczasowy z tego samego katalogu zastępuje poprzedni
    przez `rename()`. Stan i dziennik są ulotne w MVP.
