@@ -2,7 +2,7 @@
 #define SENTINEL_HEALTH_H
 
 #include "config.h"
-#include "metrics.h"
+#include "sample.h"
 
 enum health_level {
     HEALTH_NORMAL,

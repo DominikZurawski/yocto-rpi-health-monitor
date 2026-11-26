@@ -382,11 +382,20 @@ Z katalogu głównego repozytorium:
 
 ```bash
 build_dir=$(mktemp -d)
-cmake -S app -B "$build_dir" -DCMAKE_BUILD_TYPE=Release
-cmake --build "$build_dir" --parallel
-(cd "$build_dir" && ctest --output-on-failure)
+cmake -S libsentinel-metrics -B "$build_dir/metrics" -DCMAKE_BUILD_TYPE=Release &&
+cmake --build "$build_dir/metrics" --parallel &&
+cmake --install "$build_dir/metrics" --prefix "$build_dir/install" &&
+cmake -S app -B "$build_dir" -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="$build_dir/install" &&
+cmake --build "$build_dir" --parallel &&
+(cd "$build_dir" && ctest --output-on-failure) &&
 cmake --install "$build_dir" --prefix "$build_dir/install"
 ```
+
+Biblioteka instaluje nagłówek `sentinel/metrics.h`, konfigurację pakietu
+CMake i bibliotekę współdzieloną. `CMAKE_PREFIX_PATH` pomaga CMake
+znaleźć zainstalowany pakiet podczas konfiguracji aplikacji. Do prób
+hostowych używamy binarki bezpośrednio z katalogu budowania, gdzie
+CMake zapisał ścieżkę do tymczasowo zainstalowanej biblioteki.
 
 Żeby zobaczyć czytelny przebieg scenariusza testowego z katalogu
 repozytorium, uruchom `sh app/tests/process.sh "$build_dir/rpi-sentinel"`.
@@ -450,7 +459,9 @@ i `--thermal-root` wskazują przygotowane źródła w teście procesowym.
 ### CI aplikacji
 
 Workflow `Kompilacja i testy aplikacji` uruchamia się po `push` i przy
-aktualizacji pull requesta. Na runnerze Ubuntu 24.04 jawnie włącza testy
+aktualizacji pull requesta. Na runnerze Ubuntu 24.04 buduje i instaluje
+bibliotekę do katalogu tymczasowego, a potem buduje aplikację jako
+konsumenta zainstalowanej biblioteki. Jawnie włącza testy
 przez `-DBUILD_TESTING=ON`. CTest wypisuje szczegóły nieudanych testów,
 a opcja `--no-tests=error` kończy zadanie błędem również wtedy, gdy CTest
 nie znajdzie żadnego testu.
@@ -490,6 +501,41 @@ i składnię jednostki. W pierwszym buildzie BitBake utworzył pakiet RPM
 z binarką AArch64, konfiguracją, jednostką systemd i regułą preset.
 Log `do_package_qa` potwierdził wykonanie kontroli, a manifest
 `rpi-sentinel-image` zawiera wersję 0.1.0 pakietu.
+
+### Biblioteka metryk w Yocto
+
+Receptura `libsentinel-metrics` kompiluje bibliotekę dla celu. Zależność
+`DEPENDS` w recepturze monitora udostępnia nagłówki, bibliotekę i konfigurację
+CMake w jego sysroot przed konfiguracją. Pakiet uruchomieniowy biblioteki
+zawiera plik współdzielony z SONAME `libsentinel-metrics.so.1`. Pakiet
+`-dev` dostarcza nagłówek, konfigurację CMake i niewersjonowany link
+używany przy linkowaniu. Yocto odczytuje potrzebny SONAME z binarki
+monitora i zapisuje zależność uruchomieniową w metadanych pakietu.
+W bieżącym buildzie `oe-pkgdata-util` pokazuje logiczną nazwę
+`libsentinel-metrics`, a manifest obrazu pokazuje nazwę pakietu
+instalowanego na urządzeniu `libsentinel-metrics1`.
+
+Obie receptury rozpakowują wspólny prywatny nagłówek parsera pod `S`.
+Dzięki temu standardowe mapowanie ścieżek debugowania Yocto obejmuje
+ten nagłówek. Przy nagłówku obok `S` kontrola `buildpaths` wykryła
+ścieżkę do katalogu tymczasowego w pakiecie debug.
+
+W zainicjalizowanym katalogu builda obrazu deweloperskiego uruchom:
+
+```bash
+bitbake libsentinel-metrics rpi-sentinel &&
+oe-pkgdata-util list-pkg-files libsentinel-metrics-dev &&
+oe-pkgdata-util read-value RDEPENDS rpi-sentinel
+```
+
+Po zbudowaniu i wgraniu obrazu Wi-Fi i SSH wykonaj
+`bash scripts/smoke-test.sh live "$pi"`. Przebieg wgrywania opisuje
+[procedura testów sprzętowych](testing.md).
+
+**Wynik na Raspberry Pi 3.** Test `live` zakończył się wynikiem PASS.
+Usługa była włączona przy starcie i aktywna, dziennik zawierał próbki,
+a plik stanu został zaktualizowany. Próbka w stanie `NORMAL` pokazała
+38,628°C, 11% użycia RAM i 224,340 s czasu pracy urządzenia.
 
 ### Wspólny sstate i baza równoważności
 

@@ -1,6 +1,6 @@
 #include "config.h"
 #include "health.h"
-#include "metrics.h"
+#include <sentinel/metrics.h>
 #include "status.h"
 
 #include <errno.h>
@@ -32,47 +32,47 @@ static void write_fixture(const char *path, const char *text)
 static void test_metrics(const char *directory, const char *path)
 {
     uint64_t uptime;
-    CHECK(read_uptime(path, &uptime) == ENOENT);
-    CHECK(read_memory(path, &(struct memory_usage){0}) == ENOENT);
-    CHECK(read_cpu_temperature(path, "cpu-thermal", &(int){0}) == ENOENT);
+    CHECK(sentinel_read_uptime(path, &uptime) == ENOENT);
+    CHECK(sentinel_read_memory(path, &(struct sentinel_memory_usage){0}) == ENOENT);
+    CHECK(sentinel_read_cpu_temperature(path, "cpu-thermal", &(int){0}) == ENOENT);
     write_fixture(path, "0.000 0.00\n");
-    CHECK(read_uptime(path, &uptime) == 0 && uptime == 0);
+    CHECK(sentinel_read_uptime(path, &uptime) == 0 && uptime == 0);
     write_fixture(path, "123.45 678.90\n");
-    CHECK(read_uptime(path, &uptime) == 0 && uptime == 123450);
+    CHECK(sentinel_read_uptime(path, &uptime) == 0 && uptime == 123450);
     write_fixture(path, "123.45 -1.00\n");
-    CHECK(read_uptime(path, &uptime) == EINVAL);
+    CHECK(sentinel_read_uptime(path, &uptime) == EINVAL);
     write_fixture(path, "18446744073709551.616 0.00\n");
-    CHECK(read_uptime(path, &uptime) == ERANGE);
+    CHECK(sentinel_read_uptime(path, &uptime) == ERANGE);
     write_fixture(path, "1.0 2.0 extra\n");
-    CHECK(read_uptime(path, &uptime) == EINVAL);
+    CHECK(sentinel_read_uptime(path, &uptime) == EINVAL);
     write_fixture(path, "1.25\n");
-    CHECK(read_uptime(path, &uptime) == EINVAL);
+    CHECK(sentinel_read_uptime(path, &uptime) == EINVAL);
     write_fixture(path, "1.2345 2.0\n");
-    CHECK(read_uptime(path, &uptime) == EINVAL);
+    CHECK(sentinel_read_uptime(path, &uptime) == EINVAL);
     write_fixture(path, "1.25 2.0\n3.0 4.0\n");
-    CHECK(read_uptime(path, &uptime) == EINVAL);
+    CHECK(sentinel_read_uptime(path, &uptime) == EINVAL);
 
-    struct memory_usage memory;
+    struct sentinel_memory_usage memory;
     write_fixture(path, "MemTotal: 1000 kB\nMemFree: 100 kB\nMemAvailable: 250 kB\n");
-    CHECK(read_memory(path, &memory) == 0 && memory_used_percent(&memory) == 75);
+    CHECK(sentinel_read_memory(path, &memory) == 0 && sentinel_memory_used_percent(&memory) == 75);
     write_fixture(path, "MemTotal: 1000 kB\nMemFree: 100 kB\n");
-    CHECK(read_memory(path, &memory) == EINVAL);
+    CHECK(sentinel_read_memory(path, &memory) == EINVAL);
     write_fixture(path, "MemTotal: 1 kB\nMemAvailable: 2 kB\n");
-    CHECK(read_memory(path, &memory) == EINVAL);
+    CHECK(sentinel_read_memory(path, &memory) == EINVAL);
     write_fixture(path, "MemTotal: 1 MB\nMemAvailable: 1 kB\n");
-    CHECK(read_memory(path, &memory) == EINVAL);
+    CHECK(sentinel_read_memory(path, &memory) == EINVAL);
     write_fixture(path, "MemTotal: 18446744073709551615 kB\nMemAvailable: 1 kB\n");
-    CHECK(read_memory(path, &memory) == ERANGE);
+    CHECK(sentinel_read_memory(path, &memory) == ERANGE);
     write_fixture(path, "MemTotal: 0 kB\nMemAvailable: 0 kB\n");
-    CHECK(read_memory(path, &memory) == EINVAL);
+    CHECK(sentinel_read_memory(path, &memory) == EINVAL);
     write_fixture(path, "MemTotal: 1 kB\nMemAvailable: 1 kB\nMemAvailable: 0 kB\n");
-    CHECK(read_memory(path, &memory) == EINVAL);
+    CHECK(sentinel_read_memory(path, &memory) == EINVAL);
     write_fixture(path, "MemAvailable: 0 kB\nMemTotal: 1 kB\n");
-    CHECK(read_memory(path, &memory) == 0 && memory_used_percent(&memory) == 100);
+    CHECK(sentinel_read_memory(path, &memory) == 0 && sentinel_memory_used_percent(&memory) == 100);
     write_fixture(path, "MemTotal: 3 kB\nMemAvailable: 3 kB\n");
-    CHECK(read_memory(path, &memory) == 0 && memory_used_percent(&memory) == 0);
+    CHECK(sentinel_read_memory(path, &memory) == 0 && sentinel_memory_used_percent(&memory) == 0);
     write_fixture(path, "MemTotal: 3 kB\nMemAvailable: 2 kB\n");
-    CHECK(read_memory(path, &memory) == 0 && memory_used_percent(&memory) == 33);
+    CHECK(sentinel_read_memory(path, &memory) == 0 && sentinel_memory_used_percent(&memory) == 33);
 
     char zone[128];
     char type[160];
@@ -83,26 +83,26 @@ static void test_metrics(const char *directory, const char *path)
     snprintf(temperature_path, sizeof(temperature_path), "%s/temp", zone);
     CHECK(mkdir(zone, 0700) == 0);
     write_fixture(type, "cpu-thermal\n");
-    CHECK(read_cpu_temperature(directory, "cpu-thermal", &temperature) == ENOENT);
+    CHECK(sentinel_read_cpu_temperature(directory, "cpu-thermal", &temperature) == ENOENT);
     write_fixture(temperature_path, "75125\n");
-    CHECK(read_cpu_temperature(directory, "gpu-thermal", &temperature) == ENOENT);
-    CHECK(read_cpu_temperature(directory, "cpu-thermal", &temperature) == 0 && temperature == 75125);
+    CHECK(sentinel_read_cpu_temperature(directory, "gpu-thermal", &temperature) == ENOENT);
+    CHECK(sentinel_read_cpu_temperature(directory, "cpu-thermal", &temperature) == 0 && temperature == 75125);
     write_fixture(temperature_path, "-2500\n");
-    CHECK(read_cpu_temperature(directory, "cpu-thermal", &temperature) == 0 && temperature == -2500);
+    CHECK(sentinel_read_cpu_temperature(directory, "cpu-thermal", &temperature) == 0 && temperature == -2500);
     write_fixture(temperature_path, "999999\n");
-    CHECK(read_cpu_temperature(directory, "cpu-thermal", &temperature) == ERANGE);
+    CHECK(sentinel_read_cpu_temperature(directory, "cpu-thermal", &temperature) == ERANGE);
     write_fixture(temperature_path, "75 C\n");
-    CHECK(read_cpu_temperature(directory, "cpu-thermal", &temperature) == EINVAL);
+    CHECK(sentinel_read_cpu_temperature(directory, "cpu-thermal", &temperature) == EINVAL);
     write_fixture(temperature_path, "");
-    CHECK(read_cpu_temperature(directory, "cpu-thermal", &temperature) == EINVAL);
+    CHECK(sentinel_read_cpu_temperature(directory, "cpu-thermal", &temperature) == EINVAL);
     write_fixture(temperature_path, "-40000\n");
-    CHECK(read_cpu_temperature(directory, "cpu-thermal", &temperature) == 0 && temperature == -40000);
+    CHECK(sentinel_read_cpu_temperature(directory, "cpu-thermal", &temperature) == 0 && temperature == -40000);
     write_fixture(temperature_path, "-40001\n");
-    CHECK(read_cpu_temperature(directory, "cpu-thermal", &temperature) == ERANGE);
+    CHECK(sentinel_read_cpu_temperature(directory, "cpu-thermal", &temperature) == ERANGE);
     write_fixture(temperature_path, "150000\n");
-    CHECK(read_cpu_temperature(directory, "cpu-thermal", &temperature) == 0 && temperature == 150000);
+    CHECK(sentinel_read_cpu_temperature(directory, "cpu-thermal", &temperature) == 0 && temperature == 150000);
     write_fixture(temperature_path, "150001\n");
-    CHECK(read_cpu_temperature(directory, "cpu-thermal", &temperature) == ERANGE);
+    CHECK(sentinel_read_cpu_temperature(directory, "cpu-thermal", &temperature) == ERANGE);
     CHECK(unlink(temperature_path) == 0 && unlink(type) == 0 && rmdir(zone) == 0);
 }
 

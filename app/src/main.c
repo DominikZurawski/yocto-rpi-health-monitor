@@ -1,6 +1,6 @@
 #include "config.h"
 #include "health.h"
-#include "metrics.h"
+#include <sentinel/metrics.h>
 #include "status.h"
 
 #include <errno.h>
@@ -201,9 +201,9 @@ int main(int argc, char **argv)
         deadline.tv_sec += config.interval_sec;
 
         struct sample sample = {0};
-        sample.cpu_error = read_cpu_temperature(thermal_root, thermal_type, &sample.cpu_millic);
-        sample.uptime_error = read_uptime(uptime_path, &sample.uptime_ms);
-        sample.memory_error = read_memory(memory_path, &sample.memory);
+        sample.cpu_error = sentinel_read_cpu_temperature(thermal_root, thermal_type, &sample.cpu_millic);
+        sample.uptime_error = sentinel_read_uptime(uptime_path, &sample.uptime_ms);
+        sample.memory_error = sentinel_read_memory(memory_path, &sample.memory);
         log_metric_error("temperatury CPU", sample.cpu_error, previous_sample.cpu_error);
         log_metric_error("uptime", sample.uptime_error, previous_sample.uptime_error);
         log_metric_error("RAM", sample.memory_error, previous_sample.memory_error);

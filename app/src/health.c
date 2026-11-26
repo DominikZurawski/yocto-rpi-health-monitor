@@ -35,7 +35,7 @@ struct health evaluate_health(const struct sample *sample, const struct sentinel
         result.cpu_level = evaluate_metric(sample->cpu_millic, limits, previous.cpu_level);
     }
     if (sample->memory_error == 0) {
-        result.ram_level = evaluate_metric((int)memory_used_percent(&sample->memory),
+        result.ram_level = evaluate_metric((int)sentinel_memory_used_percent(&sample->memory),
                                           config->ram_percent, previous.ram_level);
     }
 

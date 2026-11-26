@@ -4,7 +4,7 @@ Systemd nadzoruje proces `rpi-sentinel`. Aplikacja wysyła `READY=1` po pierwszy
 
 Obsłużony błąd pomiaru lub zapisu stanu trafia do dziennika. Błąd odczytu metryki może dać stan `ERROR` z działającym watchdogiem. Watchdog mierzy postęp pętli. Ocena progu i dostępności metryk wynika z danych programu. `TimeoutStartSec=30s` obejmuje okres przed `READY=1`.
 
-Receptura Yocto deklaruje `DEPENDS += "systemd"` na czas kompilacji. Klasa `pkgconfig` kieruje CMake do pliku `libsystemd.pc` w sysroot dla celu. Wymaganą bibliotekę w pakiecie docelowym rozpoznaje mechanizm zależności bibliotek współdzielonych. Test CTest `sentinel-watchdog` odbiera datagramy z binarki hostowej i sprawdza gotowość, kolejne sygnały heartbeat, zachowanie po utracie metryki oraz odrzucenie niezgodnego interwału.
+Receptura Yocto deklaruje `systemd` w `DEPENDS` na czas kompilacji. Klasa `pkgconfig` kieruje CMake do pliku `libsystemd.pc` w sysroot dla celu. Wymaganą bibliotekę w pakiecie docelowym rozpoznaje mechanizm zależności bibliotek współdzielonych. Test CTest `sentinel-watchdog` odbiera datagramy z binarki hostowej i sprawdza gotowość, kolejne sygnały heartbeat, zachowanie po utracie metryki oraz odrzucenie niezgodnego interwału.
 
 ## Przygotowanie prób na Pi
 

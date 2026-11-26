@@ -43,7 +43,7 @@ int print_status(FILE *stream, const struct sample *sample, struct health health
         fprintf(stream, "{\"available\":true,\"level\":\"%s\",\"total_kib\":%" PRIu64
                 ",\"available_kib\":%" PRIu64 ",\"used_percent\":%u}",
                 health_name(health.ram_level), sample->memory.total_kib,
-                sample->memory.available_kib, memory_used_percent(&sample->memory));
+                sample->memory.available_kib, sentinel_memory_used_percent(&sample->memory));
     }
     fputs("}\n", stream);
     return ferror(stream) ? EIO : 0;

@@ -1,4 +1,4 @@
-#include "metrics.h"
+#include <sentinel/metrics.h>
 #include "parse.h"
 
 #include <dirent.h>
@@ -40,7 +40,7 @@ static int thermal_path(char *path, size_t size, const char *root, const char *z
 /* Wyszukuje strefę thermal_zoneN o zadanym typie. Zwraca w millic
  * temperaturę w milistopniach Celsjusza, jeśli odczyt i walidacja się powiodą.
  */
-int read_cpu_temperature(const char *thermal_root, const char *zone_type, int *millic)
+int sentinel_read_cpu_temperature(const char *thermal_root, const char *zone_type, int *millic)
 {
     static const char prefix[] = "thermal_zone";
     DIR *dir = opendir(thermal_root);
@@ -138,7 +138,7 @@ static int parse_seconds(char **cursor, uint64_t *milliseconds)
 /* Waliduje oba pola pliku /proc/uptime. Zapisuje tylko pierwsze pole,
  * czyli czas od rozruchu systemu, w milisekundach.
  */
-int read_uptime(const char *path, uint64_t *milliseconds)
+int sentinel_read_uptime(const char *path, uint64_t *milliseconds)
 {
     char line[128];
     int error = read_single_line(path, line, sizeof(line));
@@ -188,14 +188,14 @@ static int parse_kib(char *text, uint64_t *value)
 /* Czyta MemTotal i MemAvailable w KiB, odrzuca braki, duplikaty
  * i wartości sprzeczne. Zapisuje kompletny wynik dopiero po sukcesie.
  */
-int read_memory(const char *path, struct memory_usage *memory)
+int sentinel_read_memory(const char *path, struct sentinel_memory_usage *memory)
 {
     FILE *file = fopen(path, "r");
     if (file == NULL) {
         return errno;
     }
 
-    struct memory_usage data = {0};
+    struct sentinel_memory_usage data = {0};
     bool have_total = false;
     bool have_available = false;
     char line[256];
@@ -230,9 +230,9 @@ int read_memory(const char *path, struct memory_usage *memory)
 }
 
 /* Oblicza całkowity procent użytego RAM, zaokrąglony w dół.
- * Wymaga poprawnych danych zwróconych przez read_memory().
+ * Wymaga poprawnych danych zwróconych przez sentinel_read_memory().
  */
-unsigned memory_used_percent(const struct memory_usage *memory)
+unsigned sentinel_memory_used_percent(const struct sentinel_memory_usage *memory)
 {
     return (unsigned)((memory->total_kib - memory->available_kib) * 100 / memory->total_kib);
 }
