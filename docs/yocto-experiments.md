@@ -1,6 +1,6 @@
 # Eksperymenty z BitBake
 
-Konfiguracja startowa to Yocto 6.0.4 Wrynose, BitBake 2.18.0, `MACHINE=raspberrypi3-64` i projekt w rewizji `4541d7c`. Używamy osobnego katalogu `~/yocto/rpi-sentinel-wrynose/build-stage8`. Artefakty obserwacji zapisujemy w ignorowanym przez Git katalogu `artifacts/stage8/`.
+Konfiguracja startowa to Yocto 6.0.4 Wrynose, BitBake 2.18.0, `MACHINE=raspberrypi3-64` i projekt w rewizji `a4ba525`. Używamy osobnego katalogu `~/yocto/rpi-sentinel-wrynose/build-stage8`. Artefakty obserwacji zapisujemy w ignorowanym przez Git katalogu `artifacts/stage8/`.
 
 ## 1. Graf zależności receptury
 

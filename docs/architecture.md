@@ -2,146 +2,77 @@
 
 ## Platforma
 
-Bazą jest Yocto Project 6.0.4 (Wrynose LTS) z gałęzią `wrynose` warstwy
-`meta-raspberrypi`, `MACHINE = "raspberrypi3-64"`,
-`DISTRO = "rpi-sentinel"` i `INIT_MANAGER = "systemd"`. Docelowy
-`rpi-sentinel-image` będzie oparty na `core-image-minimal` i zawrze pakiet
-Sentinel, jednostkę usługi i komponenty potrzebne do rozruchu oraz
-diagnostyki konsolowej. Format obrazu SD i manifest pakietów sprawdzimy
-dla przypiętego BSP. Etap 2 używa referencyjnego `DISTRO = "poky"`.
+Projekt używa Yocto Project 6.0.4 Wrynose i BitBake 2.18.0.
+Własna warstwa rozszerza `core-image-minimal` o pakiet monitora.
+Konfiguracja to `MACHINE=raspberrypi3-64`, `DISTRO=poky` oraz
+`INIT_MANAGER=systemd`. Docelowy sprzęt zweryfikowany w próbach to
+Raspberry Pi 3 Model B Rev 1.2. Wariant 64-bitowy używa ABI AArch64.
+Profil 32-bitowy pozostaje możliwym rozszerzeniem, z osobnymi próbami
+zgodności i zużycia RAM.
 
-MVP korzysta z konsoli lokalnej. Opcjonalny profil deweloperski dopuszcza
-SSH z kluczem publicznym i wyłącza uwierzytelnianie hasłem. Klucze publiczne
-dostarczamy osobno, a klucze prywatne przechowujemy poza repozytorium.
-
-Według tabeli wydań z 24 listopada 2026 r. Blacksail 6.1.0 ma wsparcie
-do kwietnia 2027 r., Wrynose 6.0.4 LTS do kwietnia 2030 r., a
-Scarthgap 5.0.21 LTS do kwietnia 2028 r. Kalendarz przewidywał
-Blacksail 6.1.1 na tydzień od 23 listopada. Indeks warstw wykazuje
-gałęzie BSP dla Wrynose i Scarthgap oraz bieżący rozwój na `master`.
-Osobna gałąź i zgodna rewizja dla Blacksail pozostały niepotwierdzone.
-Wrynose obejmuje oba warianty Raspberry Pi 3 i ma najdłuższy okres LTS.
-
-- [Wydania Yocto](https://www.yoctoproject.org/development/releases/)
-- [Kalendarz wydań](https://wiki.yoctoproject.org/wiki/Release_calendar)
-- [BSP Wrynose](https://layers.openembedded.org/layerindex/branch/wrynose/layer/meta-raspberrypi/)
-- [BSP Scarthgap](https://layers.openembedded.org/layerindex/branch/scarthgap/layer/meta-raspberrypi/)
-- [Gałąź rozwojowa BSP](https://layers.openembedded.org/layerindex/branch/master/layer/meta-raspberrypi/)
-
-AArch64 wykorzystuje 64-bitowy tryb Cortex-A53 i wspólny interfejs binarny
-aplikacji (ABI) dla systemów Linux AArch64. ABI określa współpracę
-skompilowanych programów i bibliotek, w tym sposób wywoływania funkcji
-oraz układ typów. Wariant 32-bitowy może zmniejszyć zużycie pamięci
-przez struktury ze wskaźnikami i obsługiwać starsze binaria ARM.
-Raspberry Pi 3 Model B ma 1 GB RAM. Jeśli powstanie profil 32-bitowy,
-porównamy na płytce zużycie pamięci i rozmiar obrazu.
+[Manifest przypiętych źródeł](../build-config/sources.lock) wskazuje
+rewizje BitBake, OE-Core, meta-yocto i BSP Raspberry Pi. Własna warstwa
+oraz konfiguracja obrazu pochodzą z checkoutu projektu.
+[Instrukcja budowania](yocto-build.md) opisuje trzy profile i artefakty.
 
 ## Komponenty
 
 ```mermaid
-flowchart TD
-    B["Przypięte BitBake, OE-Core i BSP Raspberry Pi"] --> I["Obraz RPi Sentinel"]
-    L["meta-rpi-sentinel"] --> I
-    I --> S["systemd jako PID 1"]
-    S -->|"Start i restart z limitem"| A["Usługa Sentinel w C"]
-    K["Temperatura z sysfs, meminfo i zegar rozruchu"] --> A
-    C["Konfiguracja lokalna"] --> A
-    A -->|"Zdarzenia i błędy"| J["Dziennik systemd"]
-    A -->|"Atomowa publikacja"| F["Lokalny stan JSON"]
-    A -->|"READY=1 i WATCHDOG=1"| S
-    S -->|"Odświeżanie przez /dev/watchdog0"| W["Watchdog sprzętowy"]
-    W -->|"Reset po upływie limitu"| R["Ponowny rozruch płytki"]
-    R --> S
+flowchart LR
+    L["Przypięte źródła i meta-rpi-sentinel"] --> I["rpi-sentinel-image"]
+    I --> S["systemd · Raspberry Pi 3"]
+    K["sysfs, /proc/meminfo, /proc/uptime"] --> M["libsentinel-metrics"]
+    M --> A["rpi-sentinel"]
+    C["/etc/rpi-sentinel.conf"] --> A
+    S -->|"start i restart z limitem"| A
+    A -->|"READY=1, WATCHDOG=1"| S
+    A -->|"pomiary i zdarzenia"| J["journal"]
+    A -->|"rename()"| F["/run/rpi-sentinel/status"]
 ```
 
-## Cykl życia aplikacji
+## Cykl życia
 
-Etap 3 realizuje odczyty, ocenę stanu, zapis i obsługę sygnału
-w procesie uruchamianym na hoście. Powiadomienia i nadzór systemd
-opisane poniżej należą do docelowej integracji.
-
-1. systemd uruchamia usługę na dedykowanym koncie. Aplikacja sprawdza
-   `/etc/rpi-sentinel.conf` i publikuje pierwszy stan przed wysłaniem
-   `READY=1`. Błędna konfiguracja przerywa start i daje komunikat
-   diagnostyczny. Zmiany obowiązują po restarcie usługi.
-2. Pętla wykonuje pomiar domyślnie co 5 s, a maksymalny interwał to 10 s.
-   Szuka strefy CPU po typie w `/sys/class/thermal`, oblicza
-   `(MemTotal - MemAvailable) / MemTotal` z `/proc/meminfo` i odczytuje
-   uptime z pierwszego pola `/proc/uptime`. Typ strefy potwierdzimy
-   na urządzeniu. Błędny lub niedostępny odczyt oznacza metrykę jako
-   niedostępną i daje stan `ERROR`. Zegar `CLOCK_MONOTONIC` ustala
-   terminy kolejnych cykli.
-3. Górne progi temperatury i RAM mają konfigurowalną histerezę. Uptime
-   jest informacyjny. Włączenie i ustąpienie alarmu oraz utratę i powrót
-   pomiaru zapisujemy w dzienniku procesu. W `/run/rpi-sentinel/status`
-   publikujemy wersję schematu, czas od rozruchu, pomiary, jednostki
-   i status. Plik tymczasowy z tego samego katalogu zastępuje poprzedni
-   przez `rename()`. Stan i dziennik są ulotne w MVP.
-4. Przy `Type=notify`, `WatchdogSec=30s` i `Restart=on-failure` systemd
-   odzyskuje usługę po awarii lub zawieszeniu pętli. Po obsłużeniu cyklu
-   pętla wysyła `WATCHDOG=1`, również gdy poprawnie zgłosiła brak pomiaru.
-   Alarm pozostawia usługę uruchomioną. Po przekroczeniu limitu restartów
-   usługa pozostaje w stanie `failed` do diagnostyki.
-5. PID 1 nadzoruje płytkę przez `RuntimeWatchdogSec=` i `/dev/watchdog0`.
-   Dostępność urządzenia i efektywny timeout potwierdzimy na płytce.
-   Uzbrojony watchdog resetuje płytkę po ustaniu odświeżania. Przy
-   zwykłym zatrzymaniu usługa obsługuje `SIGTERM` i kończy pracę.
-
-- [Watchdog usługi systemd](https://www.freedesktop.org/software/systemd/man/258/systemd.service.html)
-- [Watchdog sprzętowy systemd](https://www.freedesktop.org/software/systemd/man/258/systemd.conf.d.html)
+1. Systemd uruchamia monitor jako `DynamicUser` i tworzy katalog
+   `/run/rpi-sentinel` przez `RuntimeDirectory`. Aplikacja wczytuje
+   `/etc/rpi-sentinel.conf` przed pierwszą próbką. Zmiana konfiguracji
+   obowiązuje po ponownym uruchomieniu procesu.
+2. Biblioteka C czyta strefę termiczną `cpu-thermal`, `MemTotal` i
+   `MemAvailable` oraz czas od rozruchu. Zwraca milistopnie Celsjusza,
+   KiB, milisekundy albo kody błędów. Pętla korzysta z zegara
+   monotonicznego. Domyślny interwał to 5 s, a dopuszczalny zakres to
+   1–10 s.
+3. Aplikacja ocenia progi temperatury i RAM z histerezą. Wzrost poziomu
+   następuje przy osiągnięciu progu, a spadek po zejściu poniżej granicy
+   wynikającej z histerezy. Uptime jest metryką informacyjną. Brak
+   metryki powoduje stan `ERROR` z zachowaniem dostępnych odczytów.
+4. Pomiary JSON i zdarzenia trafiają do journalu. Plik statusu jest
+   zastępowany przez `rename()` po zapisaniu pliku tymczasowego w tym
+   samym katalogu. Czytelnik dostaje kompletny plik. Stan w `/run`
+   znika po restarcie urządzenia.
+5. Po pierwszym zakończonym cyklu monitor wysyła `READY=1`. Watchdog
+   usługi oczekuje `WATCHDOG=1` z głównej pętli. Obsłużony błąd
+   metryki jest raportowany, a pętla nadal potwierdza postęp. Po
+   awarii lub 30 s bez heartbeat systemd podejmuje restart po 2 s.
+   Cztery starty w ciągu 120 s wyczerpują limit. Przy zwykłym
+   zatrzymaniu monitor obsługuje `SIGTERM`.
+6. Obraz konsolowy wystarcza do lokalnego monitorowania. Profil
+   Wi-Fi i SSH używa kluczy publicznych dla konta `developer`.
+   Uprawnienia do wywoływania awarii są dostępne w osobnym profilu
+   testowym. Sprzętowy watchdog i automatyczny reset urządzenia
+   pozostają poza zakresem wdrożenia.
 
 ## Struktura repozytorium
 
-Planowana struktura rośnie wraz z implementacją i testami.
+| Ścieżka | Rola |
+| --- | --- |
+| `app/` | Monitor C, konfiguracja i testy CTest. |
+| `libsentinel-metrics/` | Biblioteka współdzielona z publicznym API pomiarów. |
+| `common/` | Prywatne nagłówki używane przez bibliotekę i aplikację. |
+| `meta-rpi-sentinel/` | Receptury aplikacji, biblioteki, obrazu i pakietu testowego. |
+| `build-config/` | Przypięte rewizje oraz konfiguracja hosta i profilu Wi-Fi. |
+| `scripts/` | Budowa obrazu bazowego, zapis karty, konfiguracja, diagnostyka i smoke test. |
+| `.github/workflows/` | Kompilacja aplikacji i CTest na runnerze Ubuntu. |
+| `docs/` | Budowanie, testy, diagnostyka, recovery i materiały publikacyjne. |
 
-```text
-README.md
-LICENSE
-.gitignore
-app/
-  CMakeLists.txt
-  include/                 # gdy nagłówki są współdzielone
-  src/
-  tests/
-meta-rpi-sentinel/
-  conf/layer.conf
-  conf/distro/rpi-sentinel.conf
-  recipes-core/images/
-  recipes-core/systemd/
-  recipes-apps/rpi-sentinel/
-build-config/sources.lock
-tests/device/smoke-test.sh
-docs/
-  architecture.md
-  requirements.md
-  build-guide.md
-  testing.md
-  troubleshooting.md
-  yocto-experiments.md
-.github/workflows/
-```
-
-Receptura aplikacji instaluje jednostkę usługi. Konfiguracja systemd na
-poziomie obrazu określa politykę sprzętowego watchdoga. Własna warstwa
-pozwala przeglądać zmiany projektu i aktualizować źródła jako sprawdzony
-zestaw.
-
-## Przypinanie źródeł
-
-`build-config/sources.lock` przechowuje adresy, pełne identyfikatory
-commitów i aktywne ścieżki warstw.
-
-| Repozytorium | Rewizja Git | Aktywna ścieżka |
-| --- | --- | --- |
-| [BitBake](https://git.openembedded.org/bitbake) | `51fd94a67fa17650a9ff623492005972bbc7d26f` | Narzędzie budowania |
-| [OpenEmbedded-Core](https://git.openembedded.org/openembedded-core) | `0f03c732a0a2d0506b41b1abe60b3f368b2300dc` | `meta` |
-| [meta-raspberrypi](https://git.yoctoproject.org/meta-raspberrypi) | `919588393f41b48cb6c5d832aa35e58a19b6762d` z `wrynose`, użyty przy bazowym rozruchu | Główny katalog repozytorium |
-
-Commit projektu identyfikuje aplikację, konfigurację obrazu oraz
-`meta-rpi-sentinel`. Kolejne użyte warstwy przypinamy w tym samym
-manifeście. Przypinamy też rewizje Git i sumy kontrolne archiwów
-pobieranych przez receptury. Dokumentujemy hosta, efektywną konfigurację
-i sumy artefaktów. Katalog roboczy, pobrane źródła i cache są na ext4.
-Eksportowane obrazy są w lokalnym `artifacts/`, pomijanym przez Git.
-
-[Rewizje źródeł wydania Yocto 6.0.4](https://docs.yoctoproject.org/wrynose/migration-guides/release-notes-6.0.4.html)
+Artefakty obrazu trafiają lokalnie do `artifacts/`. Dane Wi-Fi i klucze
+prywatne pozostają poza historią Git.

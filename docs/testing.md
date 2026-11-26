@@ -2,67 +2,33 @@
 
 Testy wykonuje się na Raspberry Pi 3 z obrazem `rpi-sentinel-image` zbudowanym dla `raspberrypi3-64`. Polecenia w tym dokumencie uruchamiaj na laptopie.
 
+## Podsumowanie weryfikacji
+
+| Obszar | Środowisko i rzeczywisty wynik | Dowód |
+| --- | --- | --- |
+| Kompilacja aplikacji i biblioteki | Host Ubuntu, `-Wall -Wextra -Werror`, 4/4 CTest PASS | Końcowy przegląd lokalny, czas CTest 6,21 s. |
+| CI aplikacji z biblioteką | GitHub Actions, PASS potwierdzony po publikacji zmian biblioteki | Workflow `application-ci.yml` uruchamia cztery testy CTest. |
+| Build i QA pakietów | Yocto 6.0.4, obie receptury przeszły `do_package_qa` | Manifest obrazu z biblioteką zawierał `libsentinel-metrics1`. Metadane aplikacji zawierały zależność od biblioteki. |
+| Konfiguracja builda publikacyjnego | Świeże katalogi BitBake, 3/3 profile poprawnie sparsowane | Z istniejących, zweryfikowanych checkoutów upstream. Sprawdzono efektywne metadane obrazu dla `base`, `wifi-ssh` i `recovery`. |
+| Rozruch, Wi-Fi, SSH i monitor | Raspberry Pi 3 Model B Rev 1.2, PASS | [Wyniki poszczególnych prób](#wyniki-z-raspberry-pi). |
+| Awaria, watchdog i limit startów | Raspberry Pi 3 Model B Rev 1.2, 3/3 PASS | [Wyniki recovery](recovery.md#wyniki-z-raspberry-pi). |
+| Monitor po wydzieleniu biblioteki | Raspberry Pi 3 Model B Rev 1.2, `live` PASS | [Próbka na obrazie z biblioteką](build-guide.md#biblioteka-metryk-w-yocto). |
+| Kernel z wbudowanym IKCONFIG | Host, kontrola konfiguracji, ekstrakcja i build obrazu PASS. Próba tego obrazu na Pi odłożona. | [Zmiana kernela i sposób powtórzenia](build-guide.md#etap-9--konfiguracja-kernela). |
+
+Próby dotyczyły obrazów z kolejnych etapów. Dla wydania powtórz
+uzgodniony smoke test na obrazie z commita przeznaczonego do tagowania.
+
 ## 1. Zawartość obrazu i pierwszy rozruch
 
 **Cel.** Sprawdzić zawartość własnego obrazu, uruchomić go z microSD i potwierdzić dostęp po Wi-Fi i SSH.
 
-**Warunki początkowe.** Build `build-stage5` zawiera warstwę `meta-rpi-sentinel`. Masz kopię danych z karty, zapisany lokalny profil Wi-Fi `.local/wifi-default` i odpowiadającą sobie parę kluczy SSH. Polecenie zapisu karty nadpisuje całe wybrane urządzenie.
+**Warunki początkowe.** Użyj obrazu z profilem `wifi-ssh` do podstawowych
+prób lub profilu `recovery` do prób wymagających uprawnień testowych.
+Przygotuj kartę microSD oraz parę kluczy SSH.
 
-**Polecenia.** W katalogu repozytorium uruchom poniższy blok. Osobny katalog `build-stage6-wifi-ssh` pozwala porównać obraz testowy z obrazem z etapu 5. `bitbake -p` sprawdza, czy BitBake może wczytać konfigurację i receptury, przed uruchomieniem builda.
-
-```bash
-(
-    set -eo pipefail
-    project_dir="$PWD"
-    yocto_dir="$HOME/yocto/rpi-sentinel-wrynose"
-    stage5_dir="$yocto_dir/build-stage5"
-    build_dir="$yocto_dir/build-stage6-wifi-ssh"
-    artifact_dir="$project_dir/artifacts/stage6-wifi-ssh"
-
-    source "$yocto_dir/layers/openembedded-core/oe-init-build-env" "$build_dir"
-    cp -- "$stage5_dir/conf/bblayers.conf" conf/bblayers.conf
-    cp -- "$project_dir/build-config/stage2.conf" conf/stage2.conf
-    cp -- "$project_dir/build-config/stage2-wifi-ssh.conf" conf/
-    install -D -m 0644 "$project_dir/build-config/classes/stage2-wifi-ssh.bbclass" \
-        classes/stage2-wifi-ssh.bbclass
-    cp -- "$stage5_dir/conf/local.conf" conf/local.conf
-    cat >> conf/local.conf <<'CONFIG'
-
-require conf/stage2-wifi-ssh.conf
-IMAGE_INSTALL:append:pn-rpi-sentinel-image = " rpi-sentinel-test-access"
-CONFIG
-
-    bitbake -p
-    bitbake rpi-sentinel-image
-
-    deploy_dir="$(bitbake-getvar --value DEPLOY_DIR_IMAGE)"
-    machine="$(bitbake-getvar --value MACHINE)"
-    image="$(readlink -e -- "$deploy_dir/rpi-sentinel-image-$machine.rootfs.wic.bz2")"
-    manifest="$(readlink -e -- "$deploy_dir/rpi-sentinel-image-$machine.rootfs.manifest")"
-    for package in rpi-sentinel systemd openssh-sshd rpi-sentinel-test-access sudo; do
-        grep -E "^$package[[:space:]]" "$manifest"
-    done
-
-    mkdir -p -- "$artifact_dir"
-    cp -- "$image" "$manifest" "$artifact_dir/"
-    printf 'Obraz do wgrania\n%s/%s\n' "$artifact_dir" "${image##*/}"
-    sha256sum -- "$artifact_dir/${image##*/}"
-)
-```
-
-Pakiet `rpi-sentinel-test-access` dodaje regułę w `/etc/sudoers.d/rpi-sentinel-test`. Tylko ten build dołącza pakiet do obrazu. Receptura wybiera ścieżkę do `systemctl` przez `base_bindir`, a `RDEPENDS` zapewnia obecność `sudo` na urządzeniu. Konto `developer` potrzebuje klucza do SSH i może przez `sudo -n` wykonywać polecenia z listy testowej. Testy awarii monitora opisuje [procedura recovery](recovery.md).
-
-Po buildzie znajdź kartę poleceniem `lsblk`. Podaj ścieżkę całej karty, ścieżkę obrazu i sumę wyświetloną powyżej. Skrypt poprosi o potwierdzenie urządzenia. Po zapisie użyje lokalnego profilu Wi-Fi i wgra klucz publiczny na kartę. Przeskanuj sieć: `sudo nmap -sn 192.168.1.0/24`
-
-```bash
-lsblk -o PATH,SIZE,MODEL,TRAN,TYPE,MOUNTPOINTS
-read -r -p 'Urządzenie całej karty microSD: ' card
-read -r -p 'Ścieżka obrazu .wic.bz2: ' image
-read -r -p 'Suma SHA256 obrazu: ' image_sha
-bash scripts/remove-deploy-card.sh "$card" "$image" "$image_sha" "$HOME/.ssh/id_ed25519.pub"
-```
-
-Przełóż kartę do Pi i włącz zasilanie. Użyj adresu przydzielonego przez domowy router. W poprzednim teście urządzenie miało `192.168.1.10`. Po zmianie obrazu sprawdź odcisk nowego klucza hosta. Możesz go porównać z odciskiem wyliczonym poleceniem `ssh-keygen -lf` dla odpowiadającego pliku `/etc/ssh/ssh_host_*_key.pub` na partycji root karty po pierwszym starcie. Jeśli SSH zgłasza zmianę klucza, po zweryfikowaniu odcisku usuń poprzedni wpis poleceniem `ssh-keygen -R "$pi"` i ponów logowanie.
+**Polecenia.** Zbuduj i zweryfikuj obraz, zapisz kartę oraz skonfiguruj
+Wi-Fi zgodnie z [instrukcją od świeżego klonu](yocto-build.md).
+Po rozruchu ustaw adres Pi i wykonaj:
 
 ```bash
 read -r -p 'Adres Raspberry Pi: ' pi
@@ -70,7 +36,7 @@ ssh -i "$HOME/.ssh/id_ed25519" "developer@$pi" \
     'uname -m && cat /proc/1/comm && cat /proc/sys/kernel/random/boot_id'
 ```
 
-**Oczekiwany wynik.** Manifest zawiera wszystkie sprawdzane pakiety. SSH z kluczem zwraca `aarch64`, `systemd` i identyfikator rozruchu.
+**Oczekiwany wynik.** Manifest zawiera `rpi-sentinel`, `systemd` i `openssh-sshd`. Profil `recovery` zawiera również `rpi-sentinel-test-access`. SSH z kluczem zwraca `aarch64`, `systemd` i identyfikator rozruchu.
 
 **PASS / FAIL.** PASS po sprawdzeniu manifestu i udanym rozruchu tego obrazu. Brak pakietu, brak rozruchu lub nieudane połączenie SSH daje FAIL.
 

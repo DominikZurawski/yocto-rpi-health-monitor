@@ -8,7 +8,12 @@ Receptura Yocto deklaruje `systemd` w `DEPENDS` na czas kompilacji. Klasa `pkgco
 
 ## Przygotowanie prób na Pi
 
-Zbuduj i wgraj obraz Wi-Fi i SSH z [instrukcji testów sprzętowych](testing.md#1-zawartość-obrazu-i-pierwszy-rozruch). Pakiet `rpi-sentinel-test-access` umożliwia wysłanie `SIGKILL` i `SIGSTOP` do głównego procesu tej jednej jednostki oraz wykonanie `reset-failed`. Próby celowo przerywają pomiary. Wykonaj je na urządzeniu testowym.
+Przed budową ustaw `export SENTINEL_PROFILE=recovery` i skorzystaj z
+[instrukcji budowania i wgrywania](yocto-build.md). Ten profil zawiera
+pakiet `rpi-sentinel-test-access`, który umożliwia wysłanie `SIGKILL`
+i `SIGSTOP` do głównego procesu tej jednej jednostki oraz wykonanie
+`reset-failed`. Próby celowo przerywają pomiary. Wykonaj je na urządzeniu
+testowym.
 
 Na laptopie ustaw adres Pi i uruchom test bazowy.
 

@@ -1,3 +1,15 @@
 AGENTS.md
 /artifacts/
 /.local/
+/build/
+/build-yocto/
+/build-release-*/
+/build-stage*/
+/downloads/
+/sstate-cache/
+CMakeCache.txt
+CMakeFiles/
+*.wic
+*.wic.*
+*.rpm
+*.ipk

@@ -1,7 +1,8 @@
-# Budowanie i uruchamianie obrazu w etapie 2
+# Notatki z budowania i uruchamiania obrazu
 
-Repozytorium pod `/mnt/windows1/Wspolne/Dokumenty/Projekty/Yocto/rpi-sentinel`
-zawiera dokumentację, skrypty, przypięte wersje i konfigurację. Katalog
+Instrukcja startowa jest w [przewodniku od świeżego klonu](yocto-build.md).
+
+Repozytorium zawiera dokumentację, skrypty, przypięte wersje i konfigurację. Katalog
 `$HOME/yocto/rpi-sentinel-wrynose` jest na ext4. Jego podkatalog
 `layers/` przechowuje źródła upstream, a `build-stage2/` konfigurację
 roboczą, logi i wyniki budowania. Poprzedni katalog `build/` zawiera
@@ -304,7 +305,7 @@ dostępu sprawdź połączenie przez sieć zapasową.
 
 Na Raspberry Pi 3 Model B Rev 1.2 użytkownik potwierdził SSH zarówno
 przez hotspot WPA2, jak i przez domowy router. Na domowym Wi-Fi
-`wlan0` otrzymał przez DHCP adres `192.168.1.10/24`. Kernel to
+`wlan0` otrzymał przez DHCP adres z domowej podsieci IPv4. Kernel to
 `6.18.33-v8` (AArch64), a PID 1 to `systemd`. Partycja `root` miała
 220,6 MiB pojemności i 75,9 MiB dostępnego miejsca. Swap był wyłączony.
 
@@ -327,7 +328,7 @@ find "$HOME/yocto/rpi-sentinel-wrynose/build-stage2-wifi-ssh/tmp/deploy/images/r
 
 Świeży obraz `core-image-minimal-raspberrypi3-64.rootfs-20261124204507.wic.bz2`
 został wgrany na microSD i uruchomiony. SSH przez domowy router działało
-pod `192.168.1.10`, a `/proc/cmdline` potwierdził parametr wygenerowany
+pod przydzielonym adresem DHCP, a `/proc/cmdline` potwierdził parametr wygenerowany
 przez Yocto, bez ręcznej edycji partycji `boot`. Kernel zgłosił
 `6.18.33-v8` na AArch64, PID 1 to `systemd`, a partycja root miała
 88,8 MiB wolnego miejsca przy 220,6 MiB pojemności. System działał
@@ -536,6 +537,8 @@ Po zbudowaniu i wgraniu obrazu Wi-Fi i SSH wykonaj
 Usługa była włączona przy starcie i aktywna, dziennik zawierał próbki,
 a plik stanu został zaktualizowany. Próbka w stanie `NORMAL` pokazała
 38,628°C, 11% użycia RAM i 224,340 s czasu pracy urządzenia.
+Zaktualizowany workflow GitHub Actions również przeszedł po opublikowaniu
+zmian z biblioteką.
 
 ### Wspólny sstate i baza równoważności
 
@@ -546,9 +549,77 @@ Na tym hoście należy wskazać istniejący katalog bazy buildu bazowego
 w `build-stage5/conf/local.conf`:
 
 ```bitbake
-BB_HASHSERVE_DB_DIR = "/home/dominik/yocto/rpi-sentinel-wrynose/build-stage2/cache"
+BB_HASHSERVE_DB_DIR = "${TOPDIR}/../build-stage2/cache"
 ```
 
 Wartością zmiennej jest katalog. BitBake sam dopisuje nazwę
 `hashserv.db`. Do sprawdzenia konfiguracji wystarczy `bitbake -p`.
 Zmiana dotyczy ponownego użycia wyników przyszłych buildów.
+
+## Etap 9 — konfiguracja kernela
+
+Poniższa procedura opisuje dodatkowy, lokalny wariant kernela. Do
+powtórzenia próby potrzebne są zmiany źródłowe opcji A, przygotowane
+osobno od dokumentacji publikacyjnej.
+
+`linux-raspberrypi_6.18.bbappend` dodaje fragment `ikconfig.cfg` dla
+`raspberrypi3-64`. Wpis `BBFILES` w `layer.conf` pozwala BitBake
+znaleźć zarówno receptury `.bb`, jak i pliki `.bbappend`.
+Bazowy kernel 6.18.33 miał `CONFIG_IKCONFIG=m`
+i `CONFIG_IKCONFIG_PROC=y`. Po zmianie na `CONFIG_IKCONFIG=y`
+kernel udostępnia własną konfigurację przez `/proc/config.gz`
+od startu. Ułatwia to sprawdzenie, jakie opcje zawiera kernel działający
+na konkretnym urządzeniu.
+
+Sprawdź konfigurację przed budową obrazu. W zainicjalizowanym katalogu
+`build-stage6-wifi-ssh` wykonaj:
+
+```bash
+bitbake-layers show-appends | grep -A 5 'linux-raspberrypi_6.18.bb'
+bitbake -c kernel_configcheck virtual/kernel
+kernel_build_dir="$(bitbake-getvar -q --value -r linux-raspberrypi B)"
+grep -E '^CONFIG_IKCONFIG(_PROC)?=' "$kernel_build_dir/.config"
+```
+
+Wynik ma zawierać `CONFIG_IKCONFIG=y` i `CONFIG_IKCONFIG_PROC=y`.
+W wykonanej próbie `kernel_configcheck` zakończył się poprawnie,
+a porównanie z bazowym `.config` wykazało zmianę tylko
+`CONFIG_IKCONFIG=m` na `CONFIG_IKCONFIG=y`. Obie konfiguracje,
+różnica i logi są w `artifacts/stage9/kernel/`.
+
+Po potwierdzeniu zbuduj `bitbake rpi-sentinel-image` i wgraj obraz
+według [instrukcji testów sprzętowych](testing.md). Po rozruchu ustaw
+adres Raspberry Pi w zmiennej `pi` na laptopie i wykonaj:
+
+```bash
+ssh -i "$HOME/.ssh/id_ed25519" "developer@$pi" '
+    test -r /proc/config.gz &&
+    zcat /proc/config.gz | grep -E "^CONFIG_IKCONFIG(_PROC)?="
+' &&
+bash scripts/smoke-test.sh live "$pi"
+```
+
+Próba sprzętowa przechodzi, gdy oba symbole mają wartość `y` w odczycie
+z działającego kernela, a `live` potwierdza aktywną usługę i aktualizację
+metryk.
+
+Zbudowany obraz `rpi-sentinel-image-raspberrypi3-64.rootfs-20261126093225.wic.bz2`
+wyeksportowano do `artifacts/stage9/kernel/` razem z manifestem i sumą
+SHA256. Skrypt `extract-ikconfig` odczytał ze skompilowanego kernela
+konfigurację identyczną z końcowym `.config`. Rozruch na Pi czeka na
+potwierdzenie.
+
+## Prace odłożone
+
+- [ ] **Etap 9, opcja A.** Wgrać gotowy obraz z `artifacts/stage9/kernel/`.
+  Na Pi potwierdzić `CONFIG_IKCONFIG=y` i `CONFIG_IKCONFIG_PROC=y`
+  w `/proc/config.gz`, uruchomić `smoke-test.sh live` i zapisać rzeczywisty
+  wynik. Sprawdzenie pliku `.config`, konfiguracji osadzonej w kernelu
+  i budowa obrazu na hoście są już wykonane.
+- [ ] **Etap 9, omówienie kodu opcji A.** Przejść krok po kroku przez zmianę
+  w `layer.conf`, plik `linux-raspberrypi_6.18.bbappend` i fragment
+  `ikconfig.cfg`. Wyjaśnić, kiedy BitBake je stosuje oraz co potwierdzają
+  `kernel_configcheck`, `extract-ikconfig` i odczyt na Pi.
+- [ ] **Etap 8, eksperymenty z BitBake.** Wznowić od eksperymentu 2
+  z `bitbake -e rpi-sentinel`. Eksperyment 1, graf zależności,
+  jest wykonany i zapisany w [notatkach z eksperymentów](yocto-experiments.md).
