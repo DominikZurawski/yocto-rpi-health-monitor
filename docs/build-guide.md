@@ -447,6 +447,20 @@ i `--thermal-root` wskazują przygotowane źródła w teście procesowym.
   flagę. `pselect()` odblokowuje sygnał atomowo przy oczekiwaniu,
   a proces kończy cykl bez zapisywania stanu z procedury sygnału.
 
+### CI aplikacji
+
+Workflow `Kompilacja i testy aplikacji` uruchamia się po `push` i przy
+aktualizacji pull requesta. Na runnerze Ubuntu 24.04 jawnie włącza testy
+przez `-DBUILD_TESTING=ON`. CTest wypisuje szczegóły nieudanych testów,
+a opcja `--no-tests=error` kończy zadanie błędem również wtedy, gdy CTest
+nie znajdzie żadnego testu.
+
+Po wysłaniu zmian na GitHub otwórz kartę **Actions** i wybierz przebieg
+dla danego commita. Oczekiwany wynik to cztery zaliczone testy, w tym
+`sentinel-watchdog`, który odbiera powiadomienia aplikacji przez lokalne
+gniazdo Unix. Ten przebieg dotyczy aplikacji hostowej. Procedura prób
+obrazu Yocto i Raspberry Pi jest w [testach sprzętowych](testing.md).
+
 ## Etap 5 — integracja z Yocto
 
 Warstwa `meta-rpi-sentinel` korzysta z OE-Core i deklaruje zgodność

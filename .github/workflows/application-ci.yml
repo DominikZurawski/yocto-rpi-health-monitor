@@ -1,0 +1,31 @@
+name: Kompilacja i testy aplikacji
+
+"on": [push, pull_request]
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    name: CMake i CTest na Ubuntu
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Pobierz kod projektu
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Zainstaluj zależności
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends build-essential cmake libsystemd-dev pkg-config python3
+
+      - name: Skonfiguruj i zbuduj aplikację
+        run: |
+          cmake -S app -B "$RUNNER_TEMP/rpi-sentinel-build" -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
+          cmake --build "$RUNNER_TEMP/rpi-sentinel-build" --parallel
+
+      - name: Uruchom CTest
+        run: ctest --test-dir "$RUNNER_TEMP/rpi-sentinel-build" --output-on-failure --no-tests=error
