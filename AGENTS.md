@@ -75,4 +75,4 @@ A task is complete only when:
 - documentation is updated where needed;
 - I explicitly approve completion.
 
-Communicate with me in Polish. Write source code and technical identifiers in English, including variables, functions, and options. Use Polish for source comments, user-facing messages, Git commit messages, and project documentation.
+Communicate with me in Polish. Write source code, technical identifiers, and Git commit messages in English. Use Polish for source comments, user-facing messages, and project documentation.
