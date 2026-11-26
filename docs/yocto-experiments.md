@@ -51,3 +51,59 @@ rpi-sentinel.do_compile
 ```
 
 **Wniosek.** `systemd.do_compile` rzeczywiście należy do łańcucha jako zależność pośrednia. Bezpośrednia krawędź między recepturami łączy `rpi-sentinel.do_prepare_recipe_sysroot` z `systemd.do_populate_sysroot`. W przypiętej wersji OE-Core ustala to `do_prepare_recipe_sysroot[deptask] = "do_populate_sysroot"` w `staging.bbclass`. Po instalacji plików dostawca udostępnia wybrane pliki, w tym nagłówki i bibliotekę, do sysroot potrzebnego przy konfiguracji aplikacji. `bitbake -g` wyznacza zależności bez wykonywania zadań kompilacji. Graf sam nie rozstrzyga, które zadania wykona kolejny build i które wyniki przywróci cache.
+
+## 2. Efektywne metadane receptury przez bitbake -e
+
+**Hipoteza.** `bitbake -e` pokaże końcowe `DEPENDS` i historię operacji,
+które złożyły tę wartość. Po wydzieleniu biblioteki metryk oczekujemy
+`libsentinel-metrics` i `systemd` z receptury oraz `cmake-native`
+i `pkgconf-native` z klas.
+
+**Polecenia.** Uruchom w katalogu głównym projektu. Używamy tego samego
+`build-stage8` co w eksperymencie 1, tym razem z bieżącą recepturą
+aplikacji po wydzieleniu biblioteki.
+
+```bash
+(
+    set -eo pipefail
+    artifact_dir="$PWD/artifacts/stage8/02-env"
+    yocto_dir="$HOME/yocto/rpi-sentinel-wrynose"
+    mkdir -p "$artifact_dir"
+    source "$yocto_dir/layers/openembedded-core/oe-init-build-env" "$yocto_dir/build-stage8"
+    bitbake -e rpi-sentinel |
+        awk '/^# \$DEPENDS([[:space:]]|$)/ {printing=1}
+             printing {print}
+             /^DEPENDS=/ {printing=0}
+             /^(WORKDIR|UNPACKDIR|S|B|D)=/ {print}' |
+        tee "$artifact_dir/metadata.txt"
+)
+```
+
+**Wynik.** BitBake pokazał dziewięć operacji w historii `DEPENDS`.
+Wiersz po rozwinięciu zawierał:
+
+```text
+DEPENDS="pkgconf-native cmake-native gcc-cross-aarch64 virtual/compilerlibs virtual/libc libsentinel-metrics systemd ninja-native systemd-systemctl-native"
+```
+
+| Wpis | Pochodzenie |
+| --- | --- |
+| `libsentinel-metrics`, `systemd` | Receptura `rpi-sentinel_0.1.0.bb`, linia z `DEPENDS +=`. |
+| `cmake-native`, `ninja-native` | `cmake.bbclass`. CMake dodano przez `:prepend`, a Ninja dopisano przy wyborze generatora. |
+| `pkgconf-native` | `pkgconfig.bbclass`. |
+| `systemd-systemctl-native` | `systemd.bbclass`. |
+| `gcc-cross-aarch64`, `virtual/compilerlibs`, `virtual/libc` | Zależności bazowe używane przez recepturę podczas kompilacji skrośnej. |
+
+| Zmienna | Rzeczywista ścieżka względem `WORKDIR` | Rola |
+| --- | --- | --- |
+| `UNPACKDIR` | `sources/` | Katalog rozpakowania wejść. |
+| `S` | `sources/app/` | Katalog źródeł wskazany przez recepturę. |
+| `B` | `build/` | Katalog pracy CMake wskazany przez `cmake.bbclass`. |
+| `D` | `image/` | Drzewo instalacyjne receptury, będące wejściem do pakowania. |
+
+**Wniosek.** Hipoteza się potwierdziła. Wynik zawiera też narzędzia
+i zależności bazowe dodane przez klasy obsługujące poszczególne etapy.
+`-native` oznacza wariant narzędzia działający na hoście budowania.
+`bitbake -e` odczytuje metadane receptury i tłumaczy pochodzenie
+wartości. Ścieżki w wyniku określają, gdzie zadania będą pisały pliki,
+jeżeli je uruchomimy. Eksperyment zakończył się bez kompilacji.
