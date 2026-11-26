@@ -54,6 +54,7 @@ W katalogu głównym projektu uruchom cały blok Bash.
 Domyślny profil `wifi-ssh`
 umożliwia test `live`. Profil `base` daje obraz konsolowy.
 Profil `recovery` dodatkowo instaluje uprawnienia dla prób awarii.
+Profil `module-demo` dodaje odrębne uprawnienia do prób modułu kernela.
 
 ```bash
 (
@@ -62,7 +63,7 @@ Profil `recovery` dodatkowo instaluje uprawnienia dla prób awarii.
     yocto_dir="${YOCTO_DIR:-$HOME/yocto/rpi-sentinel-release}"
     profile="${SENTINEL_PROFILE:-wifi-ssh}"
     case "$profile" in
-        base|wifi-ssh|recovery) ;;
+        base|wifi-ssh|recovery|module-demo) ;;
         *) printf 'Nieznany profil: %s\n' "$profile" >&2; exit 2 ;;
     esac
     build_dir="$yocto_dir/build-release-$profile"
@@ -94,6 +95,10 @@ Profil `recovery` dodatkowo instaluje uprawnienia dla prób awarii.
     fi
     if [ "$profile" = recovery ]; then
         printf '%s\n' 'IMAGE_INSTALL:append:pn-rpi-sentinel-image = " rpi-sentinel-test-access"' \
+            >> conf/sentinel-release.conf
+    fi
+    if [ "$profile" = module-demo ]; then
+        printf '%s\n' 'IMAGE_INSTALL:append:pn-rpi-sentinel-image = " rpi-sentinel-demo-test-access"' \
             >> conf/sentinel-release.conf
     fi
     cat >> conf/sentinel-release.conf <<'CONFIG'
@@ -135,9 +140,10 @@ ustaw w bieżącej powłoce np. `export SENTINEL_PROFILE=recovery`.
 Użyj tego profilu wyłącznie na urządzeniu do prób awarii, ponieważ
 przyznaje kontu testowemu ograniczone uprawnienia administracyjne.
 
-Sprawdzono powyższy blok w świeżych katalogach builda z istniejącymi,
-zweryfikowanymi checkoutami upstream. Wszystkie trzy profile przeszły
-parsowanie. Efektywne metadane potwierdziły OpenSSH w profilach
+Sprawdzono profile `base`, `wifi-ssh` i `recovery` w świeżych
+katalogach builda z istniejącymi, zweryfikowanymi checkoutami upstream.
+Te trzy profile przeszły parsowanie. Efektywne metadane potwierdziły OpenSSH
+w profilach
 `wifi-ssh` i `recovery` oraz `rpi-sentinel-test-access` wyłącznie
 w profilu `recovery`. Ta próba zakończyła się przed kompilacją obrazu.
 
@@ -159,7 +165,7 @@ read -r -p 'Suma SHA256 obrazu: ' image_sha
 bash scripts/remove-deploy-card.sh "$card" "$image" "$image_sha"
 ```
 
-Dla profilu `wifi-ssh` lub `recovery` przygotuj istniejącą parę
+Dla profilu `wifi-ssh`, `recovery` lub `module-demo` przygotuj istniejącą parę
 kluczy SSH i wskaż odmontowaną partycję karty oznaczoną `root`.
 Skrypt poprosi o SSID i hasło przez terminal. Może także użyć
 lokalnego pliku `.local/wifi-default` z trybem `0600`. Na kartę

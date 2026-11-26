@@ -1,0 +1,3 @@
+# W obrazie testowym developer może załadować i usunąć tylko moduł demonstracyjny.
+developer ALL=(root) NOPASSWD: NOSETENV: @MODPROBE@ rpi_sentinel_demo, \
+    @MODPROBE@ -r rpi_sentinel_demo

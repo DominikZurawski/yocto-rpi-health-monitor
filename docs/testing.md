@@ -13,7 +13,8 @@ Testy wykonuje się na Raspberry Pi 3 z obrazem `rpi-sentinel-image` zbudowanym 
 | Rozruch, Wi-Fi, SSH i monitor | Raspberry Pi 3 Model B Rev 1.2, PASS | [Wyniki poszczególnych prób](#wyniki-z-raspberry-pi). |
 | Awaria, watchdog i limit startów | Raspberry Pi 3 Model B Rev 1.2, 3/3 PASS | [Wyniki recovery](recovery.md#wyniki-z-raspberry-pi). |
 | Monitor po wydzieleniu biblioteki | Raspberry Pi 3 Model B Rev 1.2, `live` PASS | [Próbka na obrazie z biblioteką](build-guide.md#biblioteka-metryk-w-yocto). |
-| Kernel z wbudowanym IKCONFIG | Host, kontrola konfiguracji, ekstrakcja i build obrazu PASS. Próba tego obrazu na Pi odłożona. | [Zmiana kernela i sposób powtórzenia](build-guide.md#etap-9--konfiguracja-kernela). |
+| Kernel z wbudowanym IKCONFIG | Host i Raspberry Pi 3, PASS | `/proc/config.gz` zwrócił `CONFIG_IKCONFIG=y` i `CONFIG_IKCONFIG_PROC=y`. Przeszedł także test `live`. [Szczegóły i polecenia](build-guide.md#etap-9--konfiguracja-kernela). |
+| Moduł kernela out-of-tree | Obraz testowy, Raspberry Pi 3, PASS | Odczyt `12 → 2021 ms`, zniknięcie atrybutu po usunięciu i odczyt `7 ms` po ponownym załadowaniu. [Procedura modułu](kernel-module.md#próba-na-raspberry-pi). |
 
 Próby dotyczyły obrazów z kolejnych etapów. Dla wydania powtórz
 uzgodniony smoke test na obrazie z commita przeznaczonego do tagowania.

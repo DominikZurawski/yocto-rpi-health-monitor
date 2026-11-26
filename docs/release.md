@@ -11,7 +11,7 @@ kontrolę CI i odzyskiwanie działania pojedynczej usługi.
 
 | Priorytet | Ustalenie | Znaczenie dla publikacji |
 | --- | --- | --- |
-| Przed tagiem | Fragment Kconfig ma potwierdzony `.config`, odczyt z binarki kernela i gotowy obraz. Odczyt `/proc/config.gz` i `live` na Pi są odłożone. | Jeżeli ten fragment ma wejść do `v1.0`, potwierdź oba wyniki na płytce. |
+| Zweryfikowane | Fragment Kconfig potwierdzono na hoście i na Raspberry Pi. `/proc/config.gz` pokazał obie oczekiwane wartości, a test `live` przeszedł. | Jeśli fragment wejdzie do `v1.0`, uwzględnij tę próbę podczas weryfikacji obrazu z wybranego commita. |
 | Średni | Odczyt wejścia zastąpionego FIFO może blokować pętlę. SIGTERM jest odblokowywany przy oczekiwaniu na kolejny cykl. | Zwykłe wejścia to sysfs i procfs. Pod systemd przypadek zatrzymania pętli obejmuje watchdog. Uruchomienie z niestandardowym wejściem wymaga zaufanych plików. |
 | Niski | Przy kilku strefach termicznych o pasującym typie biblioteka wybiera pierwszą napotkaną. | Przy przenoszeniu na inną płytkę sprawdź mapowanie stref lub wskaż typ przez `--thermal-type`. |
 | Niski | W ręcznym uruchomieniu z wyjściem do zamkniętego potoku proces może zakończyć się przez `SIGPIPE` przed komunikatem o błędzie zapisu. | Dotyczy użycia z potokiem. Dziennik usługi jest obsługiwany przez systemd. |

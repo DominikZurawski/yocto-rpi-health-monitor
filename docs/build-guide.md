@@ -558,10 +558,6 @@ Zmiana dotyczy ponownego użycia wyników przyszłych buildów.
 
 ## Etap 9 — konfiguracja kernela
 
-Poniższa procedura opisuje dodatkowy, lokalny wariant kernela. Do
-powtórzenia próby potrzebne są zmiany źródłowe opcji A, przygotowane
-osobno od dokumentacji publikacyjnej.
-
 `linux-raspberrypi_6.18.bbappend` dodaje fragment `ikconfig.cfg` dla
 `raspberrypi3-64`. Wpis `BBFILES` w `layer.conf` pozwala BitBake
 znaleźć zarówno receptury `.bb`, jak i pliki `.bbappend`.
@@ -606,16 +602,16 @@ metryk.
 Zbudowany obraz `rpi-sentinel-image-raspberrypi3-64.rootfs-20261126093225.wic.bz2`
 wyeksportowano do `artifacts/stage9/kernel/` razem z manifestem i sumą
 SHA256. Skrypt `extract-ikconfig` odczytał ze skompilowanego kernela
-konfigurację identyczną z końcowym `.config`. Rozruch na Pi czeka na
-potwierdzenie.
+konfigurację identyczną z końcowym `.config`.
+
+**Wynik na Raspberry Pi 3.** Z działającego kernela odczytano
+`CONFIG_IKCONFIG=y` i `CONFIG_IKCONFIG_PROC=y`. `smoke-test.sh live`
+potwierdził aktywną usługę, próbki w journalu i aktualizację pliku stanu.
+Próbka w stanie `NORMAL` zawierała 42,932°C, 11% użycia RAM i 117,700 s
+czasu pracy urządzenia.
 
 ## Prace odłożone
 
-- [ ] **Etap 9, opcja A.** Wgrać gotowy obraz z `artifacts/stage9/kernel/`.
-  Na Pi potwierdzić `CONFIG_IKCONFIG=y` i `CONFIG_IKCONFIG_PROC=y`
-  w `/proc/config.gz`, uruchomić `smoke-test.sh live` i zapisać rzeczywisty
-  wynik. Sprawdzenie pliku `.config`, konfiguracji osadzonej w kernelu
-  i budowa obrazu na hoście są już wykonane.
 - [ ] **Etap 9, omówienie kodu opcji A.** Przejść krok po kroku przez zmianę
   w `layer.conf`, plik `linux-raspberrypi_6.18.bbappend` i fragment
   `ikconfig.cfg`. Wyjaśnić, kiedy BitBake je stosuje oraz co potwierdzają

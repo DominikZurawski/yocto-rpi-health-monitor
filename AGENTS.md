@@ -35,6 +35,7 @@ The project must demonstrate real Embedded Linux engineering skills, not merely 
 12. Do not commit generated build directories, caches, credentials or private keys.
 13. Do not run destructive disk-writing or system-changing commands without explicit approval.
 14. Do not make Git commits unless explicitly requested.
+15. Provide and explain the commands for Yocto image builds. I run those builds myself.
 
 ## Educational workflow
 

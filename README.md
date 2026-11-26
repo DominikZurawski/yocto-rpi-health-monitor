@@ -60,7 +60,7 @@ and provisioning Wi-Fi and key-based SSH locally.
 | Host build and tests | 4 CTest cases passed locally and on GitHub Actions after the shared library was introduced. |
 | Raspberry Pi 3 | The board booted, accepted key-based SSH, and published live temperature, RAM and uptime samples. |
 | Recovery | Tested automatic service restart after `SIGKILL` and watchdog expiry, then start-rate limiting and manual recovery. |
-| Experimental kernel diagnostics image | The build and embedded kernel configuration were verified on the host. The board test for this separate image is pending. |
+| Experimental kernel diagnostics image | The host build passed. On the board, `/proc/config.gz` showed both expected settings and the monitor passed the live smoke test. |
 
 Recovery covers the monitor service. A hardware watchdog and automatic
 board reset are outside the implemented scope.
@@ -73,5 +73,6 @@ board reset are outside the implemented scope.
 - [90-second demo and portfolio text](docs/portfolio.md)
 - [Interview questions and answers](docs/interview.md)
 
-The project source is licensed under the [MIT License](LICENSE). Packages
-included in a Yocto image carry their own licenses.
+The monitor and project tooling are available under the [MIT License](LICENSE).
+The optional [out-of-tree module](docs/kernel-module.md) is licensed under
+GPL-2.0-only. Packages included in a Yocto image carry their own licenses.
