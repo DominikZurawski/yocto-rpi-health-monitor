@@ -256,7 +256,7 @@ bash scripts/smoke-test.sh live "$pi"
 
 | Test | Wynik | Dowód |
 | --- | --- | --- |
-| 1. Obraz i rozruch | PASS | Manifest obrazu z 25.11.2026 zawiera `rpi-sentinel`, `systemd` i `openssh-sshd`. Po rozruchu SSH zwróciło `aarch64`, `systemd` i identyfikator rozruchu. |
+| 1. Obraz i rozruch | PASS | Manifest obrazu zawiera `rpi-sentinel`, `systemd` i `openssh-sshd`. Po rozruchu SSH zwróciło `aarch64`, `systemd` i identyfikator rozruchu. |
 | 2. Instalacja i usługa | PASS | `live` potwierdził binarkę i konfigurację. `systemctl status` pokazał `Loaded: loaded (...; enabled; preset: enabled)` oraz `Active: active (running)`. |
 | 3. Dziennik | PASS | `journalctl -b -u rpi-sentinel.service` pokazał próbki JSON z bieżącego rozruchu. |
 | 4. Pomiary i plik stanu | PASS | `live` potwierdził nowszą próbkę. Przykładowy odczyt w stanie `NORMAL` to 39,704°C, 10% użycia RAM i 344,780 s czasu pracy. |

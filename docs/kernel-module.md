@@ -100,7 +100,7 @@ nieobecny, a po załadowaniu miał tryb `0444`. Dwa odczyty po odstępie
 Po ponownym załadowaniu pierwszy odczyt wyniósł `7 ms`. Skrypt
 ponownie usunął moduł i potwierdził brak atrybutu.
 
-Osobna próba ładowania i usuwania modułu 27 listopada 2026 potwierdziła
+Osobna próba ładowania i usuwania modułu potwierdziła
 oba wpisy w dzienniku jądra odczytanym przez `journalctl -k -b`:
 
 ```text
