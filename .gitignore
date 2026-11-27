@@ -1,5 +1,10 @@
 AGENTS.md
+/docs/build-guide.md
 /docs/interview.md
+/docs/portfolio.md
+/docs/release.md
+/docs/requirements.md
+/docs/yocto-experiments.md
 /artifacts/
 /.local/
 /build/

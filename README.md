@@ -67,10 +67,9 @@ board reset are outside the implemented scope.
 
 ## Repository guide
 
-- [Architecture](docs/architecture.md) and [requirements](docs/requirements.md)
+- [Architecture](docs/architecture.md)
 - [Test procedures and results](docs/testing.md) and [recovery scenarios](docs/recovery.md)
-- [Troubleshooting](docs/troubleshooting.md) and [release checklist](docs/release.md)
-- [90-second demo and portfolio text](docs/portfolio.md)
+- [Troubleshooting](docs/troubleshooting.md)
 
 The monitor and project tooling are available under the [MIT License](LICENSE).
 The optional [out-of-tree module](docs/kernel-module.md) is licensed under

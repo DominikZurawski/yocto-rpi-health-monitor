@@ -12,13 +12,47 @@ Testy wykonuje się na Raspberry Pi 3 z obrazem `rpi-sentinel-image` zbudowanym 
 | Konfiguracja builda publikacyjnego | Świeże katalogi BitBake, 3/3 profile poprawnie sparsowane | Z istniejących, zweryfikowanych checkoutów upstream. Sprawdzono efektywne metadane obrazu dla `base`, `wifi-ssh` i `recovery`. |
 | Rozruch, Wi-Fi, SSH i monitor | Raspberry Pi 3 Model B Rev 1.2, PASS | [Wyniki poszczególnych prób](#wyniki-z-raspberry-pi). |
 | Awaria, watchdog i limit startów | Raspberry Pi 3 Model B Rev 1.2, 3/3 PASS | [Wyniki recovery](recovery.md#wyniki-z-raspberry-pi). |
-| Monitor po wydzieleniu biblioteki | Raspberry Pi 3 Model B Rev 1.2, `live` PASS | [Próbka na obrazie z biblioteką](build-guide.md#biblioteka-metryk-w-yocto). |
-| Kernel z wbudowanym IKCONFIG | Host i Raspberry Pi 3, PASS | `/proc/config.gz` zwrócił `CONFIG_IKCONFIG=y` i `CONFIG_IKCONFIG_PROC=y`. Przeszedł także test `live`. [Szczegóły i polecenia](build-guide.md#etap-9--konfiguracja-kernela). |
+| Monitor po wydzieleniu biblioteki | Raspberry Pi 3 Model B Rev 1.2, `live` PASS | Potwierdzono działanie usługi, odczyt wszystkich metryk i aktualizację pliku stanu. |
+| Kernel z wbudowanym IKCONFIG | Host i Raspberry Pi 3, PASS | `/proc/config.gz` zwrócił `CONFIG_IKCONFIG=y` i `CONFIG_IKCONFIG_PROC=y`. Przeszedł także test `live`. [Procedura](#weryfikacja-konfiguracji-jądra). |
 | Moduł kernela out-of-tree | Obraz testowy, Raspberry Pi 3, PASS | Odczyt `12 → 2021 ms`, zniknięcie atrybutu po usunięciu i odczyt `7 ms` po ponownym załadowaniu. Dziennik jądra potwierdził załadowanie i usunięcie modułu. [Procedura i wynik](kernel-module.md#próba-na-raspberry-pi). |
-| Kandydat `v1.0`, profil `wifi-ssh` | Raspberry Pi 3, `live` i IKCONFIG PASS | Usługa była `enabled` i `active`, dziennik zawierał próbki, a plik stanu był aktualizowany. Obie opcje IKCONFIG miały wartość `y`. Próbka `NORMAL` zawierała 40,780°C, 10% użycia RAM i 58,210 s czasu pracy. [Identyfikacja obrazu](release.md#raport-gotowości). |
+| Kandydat `v1.0`, profil `wifi-ssh` | Raspberry Pi 3, `live` i IKCONFIG PASS | Usługa była `enabled` i `active`, dziennik zawierał próbki, a plik stanu był aktualizowany. Obie opcje IKCONFIG miały wartość `y`. Próbka `NORMAL` zawierała 40,780°C, 10% użycia RAM i 58,210 s czasu pracy. |
 
 Próby dotyczyły obrazów z kolejnych etapów. Dla wydania powtórz
 uzgodniony smoke test na obrazie z commita przeznaczonego do tagowania.
+
+Próbę kandydata `v1.0` wykonano na obrazie
+`rpi-sentinel-image-raspberrypi3-64.rootfs-20261127093019.wic.bz2`.
+Zweryfikowana suma SHA256 to
+`bc97e64516c7feb07ded1536730a1fbcdc5109b0807366892e23ced64b2f1daf`.
+
+## Weryfikacja konfiguracji jądra
+
+Fragment [`ikconfig.cfg`](../meta-rpi-sentinel/recipes-kernel/linux/files/ikconfig.cfg)
+wbudowuje dostęp do konfiguracji przez `/proc/config.gz` dla `raspberrypi3-64`.
+W zainicjalizowanym katalogu budowania wykonaj:
+
+```bash
+bitbake-layers show-appends | grep -A 5 'linux-raspberrypi_6.18.bb'
+bitbake -c kernel_configcheck virtual/kernel
+kernel_build_dir=$(bitbake-getvar -q --value -r linux-raspberrypi B)
+grep -E '^CONFIG_IKCONFIG(_PROC)?=' "$kernel_build_dir/.config"
+```
+
+Po uruchomieniu obrazu na Pi sprawdź konfigurację działającego jądra.
+Z katalogu repozytorium na laptopie wykonaj:
+
+```bash
+read -r -p 'Adres Raspberry Pi: ' pi
+ssh -i "$HOME/.ssh/id_ed25519" "developer@$pi" \
+    'zcat /proc/config.gz | grep -E "^CONFIG_IKCONFIG(_PROC)?="' &&
+bash scripts/smoke-test.sh live "$pi"
+```
+
+Próba przechodzi, gdy obie opcje mają wartość `y` zarówno w `.config`,
+jak i w `/proc/config.gz`, a test `live` potwierdza odczyty i aktualizację
+pliku stanu. W wykonanej próbie `kernel_configcheck` zakończył się
+pomyślnie. Na obrazie kandydującym do `v1.0` potwierdzono obie opcje
+oraz pozytywny wynik `live`.
 
 ## 1. Zawartość obrazu i pierwszy rozruch
 

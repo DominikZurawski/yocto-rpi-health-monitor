@@ -8,7 +8,7 @@
    nie pokazuje dzierżaw, włącz Pi i porównaj listę urządzeń własnej podsieci
    przed i po starcie. Model B testowano z siecią 2,4 GHz.
 3. Jeżeli Pi nadal jest niewidoczne, użyj lokalnej konsoli albo
-   [diagnostyki z karty](build-guide.md#diagnostyka-bez-sieci). Dziennik z karty
+   [diagnostyki z karty](#diagnostyka-z-karty-bez-sieci). Dziennik z karty
    jest dostępny po wcześniejszym włączeniu trwałego journalu.
 
 Na urządzeniu zacznij od `ip address show dev wlan0` i dziennika:
@@ -23,6 +23,40 @@ Brak `wlan0` kieruje do sterownika i firmware. Zdarzenie `CONNECTED`
 z następującym wpisem DHCP potwierdza asocjację i przydział adresu.
 Przekroczenie czasu uwierzytelniania wymaga sprawdzenia trybu WPA,
 pasma i konfiguracji sieci na karcie.
+
+## Diagnostyka z karty bez sieci
+
+Wyłącz Pi i włóż kartę do laptopa. W katalogu repozytorium ustal aktualną
+ścieżkę partycji ext4 z etykietą `root`. Zamontuj ją, jeśli system jeszcze
+tego nie zrobił, i włącz zbieranie dziennika:
+
+```bash
+lsblk -o PATH,FSTYPE,LABEL,MOUNTPOINTS
+read -r -p 'Partycja root karty: ' root_partition
+if ! findmnt -rn -S "$root_partition" >/dev/null; then
+    udisksctl mount -b "$root_partition"
+fi
+bash scripts/diagnose-wifi-card.sh enable "$root_partition"
+```
+
+Skrypt ustawia limit dziennika na 16 MiB i włącza dodatkowe komunikaty
+negocjacji WPA2. Odmontowuje partycję `root` oraz partycję `boot`, jeśli
+jest zamontowana. Przełóż kartę do Pi, pozwól mu pracować około dwóch
+minut, po czym wyłącz urządzenie i przełóż kartę z powrotem do laptopa.
+Sprawdź ścieżkę ponownie, ponieważ nazwa urządzenia może się zmienić.
+
+```bash
+lsblk -o PATH,FSTYPE,LABEL,MOUNTPOINTS
+read -r -p 'Partycja root karty: ' root_partition
+if ! findmnt -rn -S "$root_partition" >/dev/null; then
+    udisksctl mount -b "$root_partition"
+fi
+bash scripts/diagnose-wifi-card.sh read "$root_partition"
+```
+
+Tryb `read` pokazuje wybrane wpisy Wi-Fi, DHCP, SSH i jądra z ostatniego
+zapisanego rozruchu. Wgranie nowego obrazu usuwa ustawienia trwałego
+dziennika z karty.
 
 ## SSH odrzuca połączenie
 
