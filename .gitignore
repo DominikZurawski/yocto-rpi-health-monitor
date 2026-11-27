@@ -1,4 +1,5 @@
 AGENTS.md
+/docs/interview.md
 /artifacts/
 /.local/
 /build/
@@ -11,5 +12,6 @@ CMakeCache.txt
 CMakeFiles/
 *.wic
 *.wic.*
+*-toolchain-*.sh
 *.rpm
 *.ipk
