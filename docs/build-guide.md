@@ -616,7 +616,6 @@ czasu pracy urządzenia.
   w `layer.conf`, plik `linux-raspberrypi_6.18.bbappend` i fragment
   `ikconfig.cfg`. Wyjaśnić, kiedy BitBake je stosuje oraz co potwierdzają
   `kernel_configcheck`, `extract-ikconfig` i odczyt na Pi.
-- [ ] **Etap 8, eksperymenty z BitBake.** Wznowić od eksperymentu 3,
-  analizy zadań od `do_fetch` do `do_package`. Graf zależności
-  i inspekcja `bitbake -e` są zapisane w
+- [x] **Etap 8, eksperymenty z BitBake.** Zakończono wszystkie 11 prób,
+  w tym kompilację skrośną z SDK oraz pomiar i analizę obrazu. Wyniki są w
   [notatkach z eksperymentów](yocto-experiments.md).

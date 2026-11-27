@@ -100,6 +100,14 @@ nieobecny, a po załadowaniu miał tryb `0444`. Dwa odczyty po odstępie
 Po ponownym załadowaniu pierwszy odczyt wyniósł `7 ms`. Skrypt
 ponownie usunął moduł i potwierdził brak atrybutu.
 
+Osobna próba ładowania i usuwania modułu 27 listopada 2026 potwierdziła
+oba wpisy w dzienniku jądra odczytanym przez `journalctl -k -b`:
+
+```text
+Nov 27 09:28:29 raspberrypi3-64 kernel: rpi_sentinel_demo: Załadowano moduł diagnostyczny
+Nov 27 09:28:29 raspberrypi3-64 kernel: rpi_sentinel_demo: Usunięto moduł diagnostyczny
+```
+
 ## Pytania kontrolne
 
 1. Które katalogi wskazują w poleceniu Kbuild opcje `-C` i `M`?

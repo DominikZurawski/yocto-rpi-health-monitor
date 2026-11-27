@@ -14,7 +14,8 @@ Testy wykonuje się na Raspberry Pi 3 z obrazem `rpi-sentinel-image` zbudowanym 
 | Awaria, watchdog i limit startów | Raspberry Pi 3 Model B Rev 1.2, 3/3 PASS | [Wyniki recovery](recovery.md#wyniki-z-raspberry-pi). |
 | Monitor po wydzieleniu biblioteki | Raspberry Pi 3 Model B Rev 1.2, `live` PASS | [Próbka na obrazie z biblioteką](build-guide.md#biblioteka-metryk-w-yocto). |
 | Kernel z wbudowanym IKCONFIG | Host i Raspberry Pi 3, PASS | `/proc/config.gz` zwrócił `CONFIG_IKCONFIG=y` i `CONFIG_IKCONFIG_PROC=y`. Przeszedł także test `live`. [Szczegóły i polecenia](build-guide.md#etap-9--konfiguracja-kernela). |
-| Moduł kernela out-of-tree | Obraz testowy, Raspberry Pi 3, PASS | Odczyt `12 → 2021 ms`, zniknięcie atrybutu po usunięciu i odczyt `7 ms` po ponownym załadowaniu. [Procedura modułu](kernel-module.md#próba-na-raspberry-pi). |
+| Moduł kernela out-of-tree | Obraz testowy, Raspberry Pi 3, PASS | Odczyt `12 → 2021 ms`, zniknięcie atrybutu po usunięciu i odczyt `7 ms` po ponownym załadowaniu. Dziennik jądra potwierdził załadowanie i usunięcie modułu. [Procedura i wynik](kernel-module.md#próba-na-raspberry-pi). |
+| Kandydat `v1.0`, profil `wifi-ssh` | Raspberry Pi 3, `live` i IKCONFIG PASS | Usługa była `enabled` i `active`, dziennik zawierał próbki, a plik stanu był aktualizowany. Obie opcje IKCONFIG miały wartość `y`. Próbka `NORMAL` zawierała 40,780°C, 10% użycia RAM i 58,210 s czasu pracy. [Identyfikacja obrazu](release.md#raport-gotowości). |
 
 Próby dotyczyły obrazów z kolejnych etapów. Dla wydania powtórz
 uzgodniony smoke test na obrazie z commita przeznaczonego do tagowania.

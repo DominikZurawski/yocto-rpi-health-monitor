@@ -53,6 +53,8 @@ For each implementation task:
 - Add appropriate tests.
 - Keep the code readable.
 - Explain non-obvious implementation choices in comments or documentation.
+- In multi-step walkthroughs, show the current step and total. End each response with one concrete next step, unless I ask to pause or stop.
+- After each prediction, state which part was correct or incorrect and explain how the observed evidence supports the assessment.
 
 ### After implementation
 Provide:
